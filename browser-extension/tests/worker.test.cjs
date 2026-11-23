@@ -149,6 +149,7 @@ function navigationFixture() {
         messages.push({id,type:msg.type,frame:opts.frameId});
         if(state.hung) return new Promise(()=>{});
         if(!state.active) throw Error('No receiving document.');
+        state.onProof?.();
         return {ok:true,...state.active};
       },
       onUpdated:{addListener:fn=>updated=fn},onRemoved:{addListener:fn=>removed=fn}}
@@ -167,10 +168,52 @@ function navigationFixture() {
   ctx.importScripts=run;run('worker.js');
   const send=(msg,from=sender)=>new Promise(resolve=>receive({...doc,...msg},from,resolve));
   const settle=()=>send({type:'targets'},{id:'ext',url:chrome.runtime.getURL('popup.html')});
-  return {browser,doc,state,messages,requests,send,
+  return {browser,doc,sender,state,messages,requests,send,
     update:async(change,id=7)=>{updated(id,change,structuredClone(browser));await settle();},
     close:async()=>{removed(7);await settle();}};
 }
+
+test('a stale same-origin sender URL accepts one delivery after the active document proves the binding',async()=>{
+  const f=navigationFixture(),poll={type:'poll',ready:true};
+  const from={...f.sender,url:'https://arena.ai/agent/previous',documentLifecycle:'active'};
+  assert.equal((await f.send(poll,from)).job?.id,'image');
+  assert.deepEqual(f.messages,[{type:'verifyDocument',id:7,frame:0}]);
+  assert.equal((await f.send(poll,from)).job,null);
+  const sent={type:'event',event:{id:'sent-once',job:'image',kind:'sent'}};
+  assert.equal((await f.send(sent,from)).ok,true);
+  assert.equal(f.state.link.paused,undefined);
+  assert.deepEqual(f.requests.filter(r=>r.data.kind).map(r=>r.data.id),['sent-once']);
+});
+
+test('a stale sender URL cannot pass without same-origin and current-document proof',async()=>{
+  const f=navigationFixture(),poll={type:'poll',ready:true};
+  const prior={...f.sender,url:'https://arena.ai/agent/previous'};
+  assert.equal((await f.send(poll,{...prior,url:'https://unrelated.example/agent/one'})).ok,false);
+  assert.equal(f.messages.length,0,'a different origin is rejected before probing the tab');
+  f.state.active={...f.doc,pageKey:'replacement'};
+  assert.equal((await f.send(poll,prior)).ok,false);
+  assert.equal(f.state.link.paused,undefined,'inconsistent sender metadata alone cannot permanently pause the link');
+  f.state.active=f.doc;
+  f.browser.pendingUrl='https://arena.ai/agent/another';
+  assert.equal((await f.send(poll,prior)).ok,false);
+  assert.equal(f.requests.length,0);
+  delete f.browser.pendingUrl;
+  f.browser.url='https://arena.ai/agent/another';
+  assert.equal((await f.send(poll,prior)).ok,false);
+  assert.ok(f.state.link.paused,'a committed different chat does pause the link');
+  assert.ok(f.requests.every(r=>!r.url.endsWith('/poll')));
+});
+
+test('loading that begins during stale-sender verification holds the delivery',async()=>{
+  const f=navigationFixture(),poll={type:'poll',ready:true};
+  const prior={...f.sender,url:'https://arena.ai/agent/previous'};
+  f.state.onProof=()=>{f.browser.status='loading';};
+  assert.equal((await f.send(poll,prior)).ok,false);
+  assert.equal(f.requests.length,0);
+  delete f.state.onProof;
+  f.browser.status='complete';
+  assert.equal((await f.send(poll,prior)).job?.id,'image');
+});
 
 test('a PNG upload loading the same live top document preserves an existing receipt',async()=>{
   const f=navigationFixture(), poll={type:'poll',ready:true};

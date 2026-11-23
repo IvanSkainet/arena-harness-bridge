@@ -69,13 +69,13 @@ async function documentProof(link) {
   } finally { clearTimeout(timer); }
 }
 
-async function verifyTab(link, lastStatus) {
+async function verifyTab(link, lastStatus, requireProof = false) {
   const readTab = () => chrome.tabs.get(link.tab).catch(() => null);
   let tab = await readTab();
   const currentChat = () => ArenaBridge.conversation(tab?.url);
-  if (!link.checkDocument && currentChat() === link.chat && tab.status === 'complete' && !tab.pendingUrl && !tab.discarded)
-    return true;
-  if (!link.checkDocument) { link.checkDocument = true; await save(link); }
+  const stable = currentChat() === link.chat && tab.status === 'complete' && !tab.pendingUrl && !tab.discarded;
+  if (stable && !link.checkDocument && !requireProof) return true;
+  if (!stable && !link.checkDocument) { link.checkDocument = true; await save(link); }
   let proof;
   const initialStatus = tab?.status;
   if (!tab?.pendingUrl && currentChat() === link.chat && !tab.discarded) {
@@ -89,13 +89,13 @@ async function verifyTab(link, lastStatus) {
   }
   // Chrome can still deliver messages to the old document before a navigation commits.
   if (tab?.pendingUrl) return false;
-  if (initialStatus === 'loading' && tab?.status === 'complete') return false;
+  if (initialStatus !== tab?.status) return false;
   const complete = (tab?.status || lastStatus) === 'complete';
   if (chat === link.chat && !tab.discarded && proof?.pageKey === link.pageKey && proof.chat === link.chat && proof.binding === link.binding) {
-    if (complete) { delete link.checkDocument; await save(link); }
+    if (complete && link.checkDocument) { delete link.checkDocument; await save(link); }
     return true;
   }
-  if (complete) await pauseLink(link, navigationNotice);
+  if (complete && link.checkDocument) await pauseLink(link, navigationNotice);
   return false;
 }
 
@@ -168,9 +168,12 @@ async function dispatch(message, sender) {
       await pauseLink(link, 'Bound tab changed conversation. Return to the original chat and reconnect.');
     return {};
   }
-  if (link.paused || message.chat !== link.chat || ArenaBridge.conversation(sender.url) !== link.chat)
+  // Chrome can retain the sender URL from before a same-document route change.
+  const requireProof = ArenaBridge.conversation(sender.url) !== link.chat;
+  if (link.paused || message.chat !== link.chat || requireProof &&
+      (!URL.canParse(sender.url) || new URL(sender.url).origin !== new URL(link.chat).origin))
     throw Error('Conversation changed. Reconnect from the original chat.');
-  if (!await verifyTab(link)) throw Error(link.paused || awaitingDocument);
+  if (!await verifyTab(link, undefined, requireProof)) throw Error(link.paused || awaitingDocument);
   if (message.type === 'poll') {
     if (message.recoverTranscript !== undefined) {
       const result = await request(link.token,'poll',{
