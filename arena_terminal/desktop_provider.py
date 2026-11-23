@@ -131,7 +131,7 @@ class DesktopJournal(Journal):
         with self.lock, self.sql:
             previous = self.one("SELECT id FROM desktop_session")
             if previous and previous["id"] != session:
-                raise Problem("Disconnect Arena from its original Desktop conversation before switching sessions")
+                raise Problem("Arena is paired with another Desktop conversation. Run /arena-reset here, then run /arena-pair.")
             self.sql.execute("INSERT OR IGNORE INTO desktop_session VALUES(?)",(session,))
 
     def bind(self,chat,tab,settled_delivery=None):
@@ -280,6 +280,13 @@ class DesktopJournal(Journal):
                             AND (id IN (SELECT r.job FROM requests r JOIN request_context c ON c.id=r.id
                                         JOIN desktop_session s ON s.id=r.session WHERE c.binding=?)
                                  OR id IN (SELECT job FROM browser_inputs))""", (binding,))
+        self._stop_pending_requests(binding, data["text"])
+        self.sql.execute("UPDATE request_context SET binding=NULL WHERE binding=?", (binding,))
+        self.sql.execute("DELETE FROM desktop_cancelled_deliveries")
+        self.sql.execute("INSERT OR REPLACE INTO desktop_transcript_faults VALUES(?,?)", (binding, data["id"]))
+        return True
+
+    def _stop_pending_requests(self, binding, reason):
         # A command already executed by Desktop can retain its evidence. A command
         # still awaiting pickup must no longer be delivered from the cached reply.
         self.sql.execute("""UPDATE requests SET error=? WHERE error IS NULL
@@ -287,11 +294,7 @@ class DesktopJournal(Journal):
                             AND (reply IS NULL OR (
                                  json_extract(reply,'$.kind') IN ('tool','image-choice')
                                  AND NOT EXISTS (SELECT 1 FROM request_context WHERE origin=requests.id)))""",
-                         (data["text"], binding))
-        self.sql.execute("UPDATE request_context SET binding=NULL WHERE binding=?", (binding,))
-        self.sql.execute("DELETE FROM desktop_cancelled_deliveries")
-        self.sql.execute("INSERT OR REPLACE INTO desktop_transcript_faults VALUES(?,?)", (binding, data["id"]))
-        return True
+                         (reason, binding))
 
     def recover_transcript(self, address):
         with self.lock:
@@ -552,12 +555,17 @@ class DesktopJournal(Journal):
                                      (r["job"], state == "waiting"))
             return {"ok":True}
 
-    def disconnect(self, session):
+    def disconnect(self, session, *, reset=False):
+        if reset and (not isinstance(session,str) or not 0 < len(session) <= 256):
+            raise Problem("Run /arena-reset from a Desktop conversation")
         with self.lock, self.sql:
             owner = self.one("SELECT id FROM desktop_session")
-            if owner and owner["id"] != session:
+            if owner and owner["id"] != session and not reset:
                 raise Problem("Only the original Desktop conversation can disconnect its bridge")
-            self.sql.execute("UPDATE requests SET error='Operator disconnected the original Arena conversation' WHERE reply IS NULL AND error IS NULL")
+            reason = "Operator reset the Arena connection" if reset else "Operator disconnected the original Arena conversation"
+            if reset and (binding := self.one("SELECT id FROM binding")):
+                self._stop_pending_requests(binding["id"], reason)
+            self.sql.execute("UPDATE requests SET error=? WHERE reply IS NULL AND error IS NULL", (reason,))
             self.sql.execute("UPDATE jobs SET state='done' WHERE state NOT IN ('done','superseded')")
             self.sql.execute("DELETE FROM desktop_session")
             self.sql.execute("DELETE FROM binding")
@@ -610,6 +618,8 @@ def serve():
                         result = db.cancel(params["id"],params["sessionId"])
                     elif method == "disconnect":
                         result = db.disconnect(params["sessionId"])
+                    elif method == "reset":
+                        result = db.disconnect(params["sessionId"], reset=True)
                     else:
                         raise Problem("Unknown Desktop method")
                     reply = {"jsonrpc":"2.0","id":rid,"result":result}

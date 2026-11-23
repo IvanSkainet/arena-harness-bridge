@@ -43,3 +43,18 @@ export function pairingCommand(companion, show = showPairing) {
     },
   }
 }
+
+export function resetCommand(companion) {
+  return {
+    name: 'arena-reset',
+    description: 'Reset Arena / Сбросить Arena — clear the delivery queue and release the connection from any Desktop conversation',
+    recordInput: false,
+    async handler({ agent, rawInput, signal }) {
+      if (rawInput.trim()) return { kind:'error', text:'Enter /arena-reset without arguments.' }
+      signal?.throwIfAborted()
+      const result = await companion.rpc('reset', { sessionId:agent.session.id })
+      if (result?.ok !== true) throw Error('The Arena companion did not confirm the reset.')
+      return { kind:'success', text:'Привязка Arena сброшена. Для подключения выполните /arena-pair. / Arena connection reset. Run /arena-pair to reconnect.' }
+    },
+  }
+}

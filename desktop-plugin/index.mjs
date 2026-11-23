@@ -3,7 +3,7 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { ArenaAdapter, route } from './provider.mjs'
 import { Companion } from './companion.mjs'
-import { pairingCommand } from './pairing.mjs'
+import { pairingCommand, resetCommand } from './pairing.mjs'
 
 export const name = 'arena-desktop'
 export const inject = ['llm', 'commands', 'agents', 'sessionProjections']
@@ -20,4 +20,5 @@ export function apply(ctx, config = {}) {
   ctx.effect(() => () => companion.close())
   ctx.llm.registerAdapter([route], new ArenaAdapter(ctx, companion))
   ctx.commands.register(pairingCommand(companion))
+  ctx.commands.register(resetCommand(companion))
 }

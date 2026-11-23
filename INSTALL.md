@@ -2,11 +2,11 @@
 
 [English version](INSTALL.en.md)
 
-Комплект v0.1.0 проверен на Windows с **DeepSeek Harness Desktop 0.2.2-rc.5**, Google Chrome и Python 3.14. В ZIP входят плагин 0.1.10 с Python-компаньоном и расширение Chrome 0.1.38. [DeepSeek Harness Desktop](https://deepseek.com/harness/) · [Релиз v0.1.0](https://github.com/StanislavSmetaninSSM/arena-harness-bridge/releases/tag/v0.1.0)
+Для установки нужны **DeepSeek Harness Desktop 0.2.2-rc.5**, Google Chrome и Python. Проверки на Windows выполнены с Python 3.14. В ZIP v0.1.1 входят плагин 0.1.11 с Python-компаньоном и расширение Chrome 0.1.38. [DeepSeek Harness Desktop](https://deepseek.com/harness/) · [Релиз v0.1.1](https://github.com/StanislavSmetaninSSM/arena-harness-bridge/releases/tag/v0.1.1)
 
 ## 1. Скачайте и распакуйте ZIP
 
-1. На странице релиза в разделе **Assets** скачайте `arena-harness-bridge-v0.1.0-windows.zip`. Распакуйте его в постоянную папку, например `C:\Tools\Arena Bridge`. Desktop сохраняет путь к архиву плагина, а Chrome загружает расширение из распакованной папки.
+1. На странице релиза в разделе **Assets** скачайте `arena-harness-bridge-v0.1.1-windows.zip`. Распакуйте его в постоянную папку, например `C:\Tools\Arena Bridge`. Desktop сохраняет путь к архиву плагина, а Chrome загружает расширение из распакованной папки.
 2. Установите Python и проверьте в PowerShell, что команда `python --version` выводит версию. Для установки зависимостей плагина понадобится доступ к npm-реестру.
 
 ## 2. Установите плагин в Desktop
@@ -15,7 +15,7 @@
 2. Откройте PowerShell в распакованной папке. Если `dsh` в PATH относится к вашей установке Desktop, выполните следующие команды.
 
    ```powershell
-   $package = (Resolve-Path -LiteralPath '.\dsh-arena-desktop-0.1.10.tgz').Path
+   $package = (Resolve-Path -LiteralPath '.\dsh-arena-desktop-0.1.11.tgz').Path
    dsh plugin --profile desktop add $package
    ```
 
@@ -24,7 +24,7 @@
    ```powershell
    $desktop = 'C:\Program Files\DeepSeek Harness\DeepSeek Harness.exe'
    $dsh = Join-Path (Split-Path -Parent $desktop) 'resources\runtime\cli\bin\dsh.cmd'
-   $package = (Resolve-Path -LiteralPath '.\dsh-arena-desktop-0.1.10.tgz').Path
+   $package = (Resolve-Path -LiteralPath '.\dsh-arena-desktop-0.1.11.tgz').Path
    & $dsh plugin --profile desktop add $package
    ```
 
@@ -41,10 +41,17 @@
 
 Введите в Desktop «Ответь одной строкой: СОЕДИНЕНИЕ РАБОТАЕТ». Сообщение должно появиться во вкладке Arena, а ответ — в Desktop. Для работы с файлами выберите нужную папку и уровень разрешений в Desktop. Отправленные сообщения, выбранные вложения и результаты инструментов этой сессии передаются в Arena.
 
+## Обновление с v0.1.0
+
+1. Скачайте и распакуйте новый ZIP. Полностью выйдите из Desktop через меню приложения или значок в области уведомлений.
+2. Откройте PowerShell в папке нового ZIP и установите `dsh-arena-desktop-0.1.11.tgz` в профиль `desktop` по шагу 2 из раздела [Установите плагин в Desktop](#2-установите-плагин-в-desktop).
+3. Запустите Desktop снова. Chrome может продолжать использовать уже загруженное расширение 0.1.38 из прежней папки. Если переносите расширение, удалите прежний экземпляр из Chrome, загрузите `browser-extension` из нового ZIP и выполните сопряжение заново.
+
 ## Если подключение не работает
 
 - **Нет модели Arena Agent Mode или команды `/arena-pair`.** Проверьте, что плагин установлен встроенным CLI того же Desktop в профиль `desktop`, и перезапустите приложение. На проверенной версии установщик может показать предупреждение о peer-зависимости `@deepseek-ai/dsh-llm`. После успешной установки Desktop загружает её из своего окружения.
 - **Компаньон не запускается.** Проверьте Python в PATH. Если нужно, задайте полный путь к `python.exe` в переменной `ARENA_PYTHON` в окружении запуска Desktop. Если порт `127.0.0.1:8766` занят другим экземпляром моста, завершите тот экземпляр.
-- **Arena просит верификацию.** Пройдите её во вкладке Chrome. Для смены привязанного чата откройте `/arena-pair` в исходном разговоре Desktop и нажмите **Disconnect and stop pending delivery**, затем выполните сопряжение для нового чата.
+- **Arena просит верификацию.** Пройдите её во вкладке Chrome.
+- **Исходный разговор удалён или нужно сменить привязку.** Выполните `/arena-reset` в любом диалоге Desktop в том же профиле. Сброс освобождает привязку и останавливает ожидающие доставки. Отправка, уже переданная Chrome, может завершиться в старом чате. Затем выполните `/arena-pair` в нужном диалоге и привяжите вкладку Arena.
 
 Чтобы удалить плагин, выйдите из Desktop и выполните `dsh plugin --profile desktop remove dsh-arena-desktop` тем же CLI. Удалите расширение на странице `chrome://extensions`.

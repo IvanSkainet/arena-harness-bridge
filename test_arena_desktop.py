@@ -946,6 +946,38 @@ class DesktopProviderTests(unittest.TestCase):
         self.db.disconnect("desktop-session")
         self.assertEqual(self.db.status("first","desktop-session")["state"],"failed")
 
+    def test_explicit_reset_from_another_session_releases_pairing(self):
+        self.db.start(self.request)
+        old_job = self.db.poll(self.addr, True)["id"]
+        with self.assertRaisesRegex(Problem, "/arena-reset"):
+            self.db.pair_owner("replacement")
+        with self.assertRaises(Problem):
+            self.db.disconnect("replacement")
+        with self.assertRaises(Problem):
+            self.db.disconnect("", reset=True)
+        self.db.disconnect("replacement", reset=True)
+        self.db.disconnect("replacement", reset=True)
+        self.assertEqual(self.db.status("first", "desktop-session")["state"], "failed")
+        self.assertEqual(self.db.state(old_job), "done")
+        self.assertEqual(self.db.issues(), [])
+        with self.assertRaisesRegex(Problem, "Binding mismatch"):
+            self.db.event(dict(self.addr, id="late-send", kind="sent", job=old_job))
+
+        self.db.pair_owner("replacement")
+        chat = "https://arena.ai/agent/replacement"
+        address = dict(tab=3, chat=chat, binding=self.db.bind(chat, 3))
+        self.assertNotEqual(address["binding"], self.addr["binding"])
+        self.db.start(dict(self.request, sessionId="replacement", requestId="new", text="New turn"))
+        self.assertIn("New turn", self.db.poll(address, True)["text"])
+
+    def test_explicit_reset_stops_a_cached_unclaimed_tool(self):
+        self.db.start(self.request)
+        delivery = self.db.poll(self.addr, True)["id"]
+        self.send_raw(delivery, tool_call(delivery).split("\n")[1])
+        self.db.disconnect("replacement", reset=True)
+        self.assertEqual(self.db.status("first", "desktop-session")["state"], "failed")
+        self.assertIsNotNone(self.db.lookup("first", "desktop-session")["reply"])
+
     def test_same_chat_rebind_invalidates_unobserved_or_queued_native_result(self):
         self.db.start(self.request)
         self.complete()

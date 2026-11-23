@@ -453,3 +453,19 @@ test('ordinary native DSH agent executes and approves a real project edit, then 
   assert.deepEqual(approvals,['edit'])
   assert.equal(await readFile(join(root, 'item.txt'), 'utf8'), 'after')
 })
+test('arena-reset sends an explicit reset from the current Desktop session', async () => {
+  const { resetCommand } = await import('../pairing.mjs')
+  const calls = []
+  const command = resetCommand({rpc: async (method, params) => {
+    calls.push({method, params})
+    return {ok:true}
+  }})
+  const input = {agent:{session:{id:'replacement'}},rawInput:''}
+  assert.equal(command.name, 'arena-reset')
+  assert.equal((await command.handler({...input,rawInput:'unexpected'})).kind, 'error')
+  assert.deepEqual(calls, [])
+  const reply = await command.handler(input)
+  assert.equal(reply.kind, 'success')
+  assert.match(reply.text, /\/arena-pair/)
+  assert.deepEqual(calls, [{method:'reset',params:{sessionId:'replacement'}}])
+})

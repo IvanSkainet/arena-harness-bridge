@@ -4,13 +4,14 @@
 
 Arena Harness Bridge connects an Arena Agent Mode browser chat to the standard DeepSeek Harness Desktop app. Type in Desktop and get Arena’s replies there.
 
-**Проверено на Windows с Chrome и DeepSeek Harness Desktop 0.2.2-rc.5.** [Скачать Windows ZIP](https://github.com/StanislavSmetaninSSM/arena-harness-bridge/releases/tag/v0.1.0) · [Инструкция на русском](INSTALL.md) · [English installation guide](INSTALL.en.md)
+**Проверено на Windows с Chrome и DeepSeek Harness Desktop 0.2.2-rc.5.** [Последний релиз и ZIP для Windows](https://github.com/StanislavSmetaninSSM/arena-harness-bridge/releases/latest) · [Инструкция на русском](INSTALL.md) · [English installation guide](INSTALL.en.md)
 
 ## Возможности
 
 - Обычные сообщения, ответы и локальные вызовы инструментов с подтверждениями Desktop.
 - Штатные цели, режим плана, карточки вопросов, вложения и скиллы текущего профиля.
 - Передача PNG из Desktop в Arena и возврат сгенерированных изображений в Desktop.
+- Команда `/arena-reset` освобождает привязку к Arena из любого диалога Desktop в том же профиле, даже если исходный диалог удалён.
 - При подтверждённом изменении исходного ответа мост останавливает старый ход. Новое сообщение из Desktop восстанавливает работу в том же документе Arena. Старые доставки остаются закрытыми.
 
 Ход цели, доступные инструменты и действия с файлами определяются профилем Desktop. Транспорт зависит от интерфейса Arena в браузере. Доступ к Agent Mode и условия текущей сессии определяются Arena.
@@ -41,7 +42,7 @@ python -m arena_terminal --root 'C:\путь\к\проекту'
 Для сборки нужны Python и npm. Архив появится в `dist/`.
 
 ```powershell
-python scripts/build_windows_release.py --version 0.1.0
+python scripts/build_windows_release.py --version 0.1.1
 python -m unittest test_arena_desktop test_arena_terminal test_windows_release
 node --test browser-extension/tests/*.test.cjs
 ```

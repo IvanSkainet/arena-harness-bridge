@@ -2,6 +2,10 @@
 
 Плагин добавляет модель **Arena Agent Mode** и команду **Connect Arena / Подключить Arena** (`/arena-pair`). Установите его с Python-компаньоном и расширением Chrome по [инструкции Windows](../INSTALL.md).
 
+Начиная с плагина 0.1.11, команда `/arena-reset` очищает очередь моста и освобождает подключение из любого диалога этого профиля Desktop. Используйте её, если прежний диалог удалён или нужно привязать другой. После сброса выполните `/arena-pair` в нужном диалоге. Если Chrome уже получил задачу для отправки, она может дойти в прежний чат.
+
+**English** — Run `/arena-reset` in any Desktop chat in the profile to clear the bridge queue and release the connection. Then run `/arena-pair` in the chat you want to use. A send already handed to Chrome may still reach the original chat.
+
 ## Использование
 
 - В обычном режиме пишите задания в поле чата Desktop. Запросы инструментов проходят через штатный исполнитель и разрешения рабочего профиля.
