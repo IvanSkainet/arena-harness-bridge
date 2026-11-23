@@ -53,7 +53,8 @@ def main():
             cwd=plugin, check=True, capture_output=True, text=True, encoding="utf-8",
         )
         package = stage / json.loads(result.stdout)[0]["filename"]
-        sources = {package.name: package, "INSTALL.md": ROOT / "INSTALL.md", "LICENSE": ROOT / "LICENSE"}
+        sources = {name: ROOT / name for name in ("INSTALL.md", "INSTALL.en.md", "LICENSE")}
+        sources[package.name] = package
         sources.update({
             "browser-extension/" + name: ROOT / "browser-extension" / name
             for name in EXTENSION_FILES

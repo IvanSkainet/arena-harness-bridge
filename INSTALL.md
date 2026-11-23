@@ -1,46 +1,50 @@
 # Установка Arena Harness Bridge на Windows
 
-Комплект v0.1.0 содержит плагин Desktop 0.1.10, его Python-компаньон и расширение Chrome 0.1.38. Проверенная версия DeepSeek Harness Desktop — 0.2.2-rc.5.
+[English version](INSTALL.en.md)
 
-## Что понадобится
+Комплект v0.1.0 проверен на Windows с **DeepSeek Harness Desktop 0.2.2-rc.5**, Google Chrome и Python 3.14. В ZIP входят плагин 0.1.10 с Python-компаньоном и расширение Chrome 0.1.38. [DeepSeek Harness Desktop](https://deepseek.com/harness/) · [Релиз v0.1.0](https://github.com/StanislavSmetaninSSM/arena-harness-bridge/releases/tag/v0.1.0)
 
-- Штатный DeepSeek Harness Desktop для Windows и Google Chrome.
-- Python в `PATH`. Проверьте командой `python --version`. Комплект проверяется с Python 3.14.
-- Доступ к Arena Agent Mode в Chrome. Вход и проверку личности, если она появляется, выполняйте в браузере.
-- Доступ к npm-реестру при установке зависимостей плагина штатным CLI Desktop.
+## 1. Скачайте и распакуйте ZIP
 
-## Установка плагина
+1. На странице релиза в разделе **Assets** скачайте `arena-harness-bridge-v0.1.0-windows.zip`. Распакуйте его в постоянную папку, например `C:\Tools\Arena Bridge`. Desktop сохраняет путь к архиву плагина, а Chrome загружает расширение из распакованной папки.
+2. Установите Python и проверьте в PowerShell, что команда `python --version` выводит версию. Для установки зависимостей плагина понадобится доступ к npm-реестру.
 
-1. Распакуйте ZIP в постоянную папку. Desktop сохраняет путь к архиву плагина в зависимостях своего профиля.
-2. Запустите DeepSeek Harness Desktop один раз для создания его профиля. Если появляется экран приветствия, можно выбрать **Добавить ключ API → Настроить позже**. Полностью выйдите из Desktop через меню приложения или значок в области уведомлений.
-3. Откройте PowerShell в распакованной папке. Если команда `dsh` доступна, выполните:
+## 2. Установите плагин в Desktop
+
+1. Запустите DeepSeek Harness Desktop один раз, чтобы он создал профиль. На экране приветствия можно выбрать **Добавить ключ API → Настроить позже**. Затем полностью выйдите из приложения через меню или значок в области уведомлений.
+2. Откройте PowerShell в распакованной папке. Если `dsh` в PATH относится к вашей установке Desktop, выполните следующие команды.
 
    ```powershell
-   $package = (Resolve-Path '.\dsh-arena-desktop-0.1.10.tgz').Path
+   $package = (Resolve-Path -LiteralPath '.\dsh-arena-desktop-0.1.10.tgz').Path
    dsh plugin --profile desktop add $package
    ```
 
-   Если `dsh` отсутствует в `PATH`, укажите путь к вашему `DeepSeek Harness.exe` и запустите встроенный CLI:
+   Если `dsh` недоступен или относится к другой установке, подставьте фактический путь к `DeepSeek Harness.exe` и вызовите встроенный CLI.
 
    ```powershell
-   $desktop = 'C:\путь\к\DeepSeek Harness.exe'
+   $desktop = 'C:\Program Files\DeepSeek Harness\DeepSeek Harness.exe'
    $dsh = Join-Path (Split-Path -Parent $desktop) 'resources\runtime\cli\bin\dsh.cmd'
-   $package = (Resolve-Path '.\dsh-arena-desktop-0.1.10.tgz').Path
+   $package = (Resolve-Path -LiteralPath '.\dsh-arena-desktop-0.1.10.tgz').Path
    & $dsh plugin --profile desktop add $package
    ```
 
-4. Снова запустите Desktop, откройте рабочую папку и выберите **Arena Agent Mode** в селекторе моделей.
+3. Снова запустите Desktop. Создайте или откройте разговор в нужной рабочей папке и выберите **Arena Agent Mode** в селекторе моделей.
 
-В версии 0.2.2-rc.5 pnpm может показать предупреждение о peer-зависимости `@deepseek-ai/dsh-llm`. В проверенном профиле плагин использовал пакет из установленного Desktop. Критерий успешной установки — появление модели **Arena Agent Mode** и команды `/arena-pair` после перезапуска.
+## 3. Загрузите расширение и привяжите чат
 
-## Расширение и первый запрос
+1. Откройте в Chrome `chrome://extensions`. Включите **Режим разработчика**, нажмите **Загрузить распакованное расширение** и выберите папку `browser-extension` из ZIP.
+2. Войдите в Arena и откройте **Agent Mode**. Если чат новый, отправьте первое сообщение в Chrome и дождитесь ответа. После появления адреса вида `https://arena.ai/agent/<id>` обновите вкладку.
+3. В выбранном разговоре Desktop выполните `/arena-pair` и нажмите **Copy pairing token**.
+4. Во вкладке Arena откройте расширение **Arena Harness Bridge**, выберите ваш разговор Arena, вставьте токен и нажмите **Bind conversation**. Используйте токен только для локального сопряжения.
 
-1. Откройте `chrome://extensions`, включите режим разработчика и через **Загрузить распакованное расширение** выберите папку `browser-extension` из ZIP.
-2. Откройте нужный разговор в Arena Agent Mode. Для нового разговора дождитесь первого ответа и адреса вида `https://arena.ai/agent/<id>`, затем обновите вкладку.
-3. В целевом разговоре Desktop выберите **Connect Arena / Подключить Arena** через `/arena-pair`. Нажмите **Copy pairing token**.
-4. В Chrome откройте **Arena Harness Bridge**, выберите нужный разговор, вставьте токен и нажмите **Bind conversation**.
-5. Отправьте в Desktop короткую просьбу ответить одной строкой. Проверьте сообщение во вкладке Arena и ответ в Desktop.
+## 4. Отправьте первое сообщение
 
-Плагин сам запускает поставляемый Python-компаньон. Если Python установлен по нестандартному пути, укажите его через `ARENA_PYTHON` в окружении запуска Desktop. Если порт `127.0.0.1:8766` занят другим экземпляром моста, завершите тот экземпляр перед сопряжением.
+Введите в Desktop «Ответь одной строкой: СОЕДИНЕНИЕ РАБОТАЕТ». Сообщение должно появиться во вкладке Arena, а ответ — в Desktop. Для работы с файлами выберите нужную папку и уровень разрешений в Desktop. Отправленные сообщения, выбранные вложения и результаты инструментов этой сессии передаются в Arena.
 
-Для отвязки откройте `/arena-pair` в исходном разговоре и нажмите **Disconnect and stop pending delivery**. Для удаления плагина выйдите из Desktop и выполните `dsh plugin --profile desktop remove dsh-arena-desktop` тем же CLI. Расширение удаляется на `chrome://extensions`.
+## Если подключение не работает
+
+- **Нет модели Arena Agent Mode или команды `/arena-pair`.** Проверьте, что плагин установлен встроенным CLI того же Desktop в профиль `desktop`, и перезапустите приложение. На проверенной версии установщик может показать предупреждение о peer-зависимости `@deepseek-ai/dsh-llm`. После успешной установки Desktop загружает её из своего окружения.
+- **Компаньон не запускается.** Проверьте Python в PATH. Если нужно, задайте полный путь к `python.exe` в переменной `ARENA_PYTHON` в окружении запуска Desktop. Если порт `127.0.0.1:8766` занят другим экземпляром моста, завершите тот экземпляр.
+- **Arena просит верификацию.** Пройдите её во вкладке Chrome. Для смены привязанного чата откройте `/arena-pair` в исходном разговоре Desktop и нажмите **Disconnect and stop pending delivery**, затем выполните сопряжение для нового чата.
+
+Чтобы удалить плагин, выйдите из Desktop и выполните `dsh plugin --profile desktop remove dsh-arena-desktop` тем же CLI. Удалите расширение на странице `chrome://extensions`.

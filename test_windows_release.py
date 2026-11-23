@@ -33,9 +33,11 @@ class WindowsReleaseTests(unittest.TestCase):
                 packages = [name for name in bundle.namelist() if name.endswith(".tgz")]
                 self.assertEqual(len(packages), 1)
                 self.assertEqual(set(bundle.namelist()), {
-                    "INSTALL.md", "LICENSE", packages[0], "browser-extension/manifest.json",
+                    "INSTALL.md", "INSTALL.en.md", "LICENSE", packages[0], "browser-extension/manifest.json",
                     *("browser-extension/" + name for name in expected),
                 })
+                for guide in ("INSTALL.md", "INSTALL.en.md"):
+                    self.assertEqual(bundle.read(guide), (ROOT / guide).read_bytes())
                 with tarfile.open(fileobj=io.BytesIO(bundle.read(packages[0])), mode="r:gz") as plugin:
                     installed = set(plugin.getnames())
                     python_files = {"package/arena_terminal/" + p.name for p in (ROOT / "arena_terminal").glob("*.py")}

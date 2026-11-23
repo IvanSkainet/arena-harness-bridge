@@ -2,7 +2,9 @@
 
 Мост подключает один веб-чат Arena Agent Mode к одному разговору в штатном DeepSeek Harness Desktop. Задания вводятся в обычном поле Desktop, ответы Arena приходят в тот же разговор. Штатные инструменты Harness выполняют локальные действия с разрешениями выбранного профиля.
 
-**Основной сценарий** — Windows, Chrome и DeepSeek Harness Desktop 0.2.2-rc.5. Для него предназначен Windows ZIP. [Установка](INSTALL.md) · [Режимы Desktop](desktop-plugin/README.md)
+Arena Harness Bridge connects an Arena Agent Mode browser chat to the standard DeepSeek Harness Desktop app. Type in Desktop and get Arena’s replies there.
+
+**Проверено на Windows с Chrome и DeepSeek Harness Desktop 0.2.2-rc.5.** [Скачать Windows ZIP](https://github.com/StanislavSmetaninSSM/arena-harness-bridge/releases/tag/v0.1.0) · [Инструкция на русском](INSTALL.md) · [English installation guide](INSTALL.en.md)
 
 ## Возможности
 
@@ -15,7 +17,7 @@
 
 ## Данные и разрешения
 
-Мост слушает `127.0.0.1:8766` и привязывает вкладку по локальному токену. В чат Arena передаются отправленные сообщения, выбранные вложения и результаты инструментов этой сессии, а также доступные модели описания инструментов и скиллов. Для локальной работы выберите нужную рабочую папку и профиль разрешений в Desktop.
+Мост слушает `127.0.0.1:8766` и привязывает вкладку по локальному токену. В чат Arena передаются отправленные сообщения, выбранные вложения, результаты инструментов этой сессии и описания доступных инструментов и скиллов. Для локальной работы выберите нужную рабочую папку и профиль разрешений в Desktop.
 
 ## Дополнительный CLI
 
