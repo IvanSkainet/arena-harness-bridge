@@ -1,0 +1,242 @@
+<!doctype html><meta charset="utf-8"><title>Native status and final answer</title>
+<main><div id="chat-message-final" data-message-status="complete"></div></main><output id="out">running</output>
+<template id="collapsed-analysis"><div data-state="closed"><button type="button" aria-controls="radix-_r_54_" aria-expanded="false" data-state="closed" class="text-text-secondary hover:text-text-tertiary group flex w-full items-center gap-1.5 text-sm transition-colors"><svg width="1.5em" height="1.5em" viewBox="0 0 24 24" stroke-width="1.5" fill="none" xmlns="http://www.w3.org/2000/svg" color="currentColor" class="text-text-secondary h-3.5 w-3.5 shrink-0 group-hover:hidden"><path d="M7 14C5.34315 14 4 15.3431 4 17C4 18.6569 5.34315 20 7 20C7.35064 20 7.68722 19.9398 8 19.8293" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"></path><path d="M4.26392 15.6046C2.9243 14.9582 2.00004 13.587 2.00004 12C2.00004 10.7883 2.53877 9.70251 3.38978 8.96898" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"></path><path d="M3.42053 8.8882C3.1549 8.49109 3 8.01363 3 7.5C3 6.11929 4.11929 5 5.5 5C6.06291 5 6.58237 5.18604 7.00024 5.5" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"></path><path d="M7.23769 5.56533C7.08524 5.24215 7 4.88103 7 4.5C7 3.11929 8.11929 2 9.5 2C10.8807 2 12 3.11929 12 4.5V20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"></path><path d="M8 20C8 21.1046 8.89543 22 10 22C11.1046 22 12 21.1046 12 20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"></path><path d="M12 7C12 8.65685 13.3431 10 15 10" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"></path><path d="M17 14C18.6569 14 20 15.3431 20 17C20 18.6569 18.6569 20 17 20C16.6494 20 16.3128 19.9398 16 19.8293" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"></path><path d="M19.7361 15.6046C21.0757 14.9582 22 13.587 22 12C22 10.7883 21.4612 9.70251 20.6102 8.96898" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"></path><path d="M20.5795 8.8882C20.8451 8.49109 21 8.01363 21 7.5C21 6.11929 19.8807 5 18.5 5C17.9371 5 17.4176 5.18604 16.9998 5.5" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"></path><path d="M12 4.5C12 3.11929 13.1193 2 14.5 2C15.8807 2 17 3.11929 17 4.5C17 4.88103 16.9148 5.24215 16.7623 5.56533" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"></path><path d="M16 20C16 21.1046 15.1046 22 14 22C12.8954 22 12 21.1046 12 20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"></path></svg><svg width="1.5em" height="1.5em" stroke-width="1.5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" color="currentColor" class="text-text-secondary hidden h-3.5 w-3.5 shrink-0 transition-transform duration-200 group-hover:block"><path d="M9 6L15 12L9 18" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"></path></svg><p class="leading-[normal]">Thought for 1 second</p></button><div class="text-text-secondary text-sm" style="overflow: clip; height: 0px; opacity: 0; filter: blur(2px);"><div style="overflow: auto;"><div class="relative pe-2 ps-6 pt-4" style="will-change: transform;"><div class="bg-sidebar-border absolute bottom-0 start-[6px] top-4 w-0.5 rounded-full"></div></div></div></div></div></template>
+<script src="../core.js"></script><script src="../generated-images.js"></script><script src="../native-questions.js"></script><script src="../adapter.js"></script>
+<script>
+try {
+  const page=new ArenaPage(document), message=document.querySelector('main > div');
+  const icon=classes=>'<svg width="1.5em" height="1.5em" viewBox="0 0 24 24" stroke-width="1.5" fill="none" xmlns="http://www.w3.org/2000/svg" color="currentColor" class="'+classes+'"><path d="M0 0 L2 2" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"></path></svg>';
+  const fetched='<div class="flex items-center gap-1.5">'+icon('text-text-tertiary size-4 shrink-0')+
+    '<span class="body-sm text-text-tertiary min-w-0 flex-1 truncate leading-4">Fetched <a dir="ltr" href="https://example.com" target="_blank" rel="noopener noreferrer" class="text-interactive-link hover:underline">https://example.com/</a></span></div>';
+  const failed='<div class="text-text-primary rounded-md border border-border-faint bg-surface-secondary/50 my-1 shadow-none"><div class="flex items-center gap-2 px-2.5 py-2">'+
+    icon('text-interactive-negative size-3.5')+'<span class="body-xs text-text-secondary">Question failed</span></div><div class="body-xs text-interactive-negative border-border-faint truncate border-t px-2.5 py-1.5">The tool failed.</div></div>';
+  const payload='{"$harness":"tool_call","name":"ask_user_question","arguments":{"questions":[{"id":"shade","question":"Which shade?"}]}}';
+  const ordinary=payload.replace('"$harness":"tool_call",','');
+  const code='<pre><div data-code-block="true"><div><span class="text-sm font-medium">JSON</span><button aria-label="Copy code">Copy</button></div><div><pre class="shiki"><code class="whitespace-pre-wrap">'+payload+'</code></pre></div></div></pre>';
+  const final='<div class="prose prose-base body-base">'+code+'</div>';
+  const draw=inner=>message.innerHTML='<div class="bg-surface-primary rounded-xl border w-full"><div class="px-3 pb-3"><div class="flex flex-col gap-2">'+inner+'</div></div></div>';
+  const check=(ok,reason)=>{if(!ok)throw Error(reason);};
+  const ran="<div><button type=\"button\" aria-expanded=\"false\" class=\"body-sm group flex w-full cursor-pointer items-center gap-1.5 leading-[1]\"><svg width=\"1.5em\" height=\"1.5em\" stroke-width=\"1.5\" viewBox=\"0 0 24 24\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\" color=\"currentColor\" class=\"text-text-tertiary size-3 shrink-0 transition-transform duration-200\"><path d=\"M9 6L15 12L9 18\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\"></path></svg><svg width=\"1.5em\" height=\"1.5em\" stroke-width=\"1.5\" viewBox=\"0 0 24 24\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\" color=\"currentColor\" class=\"text-text-tertiary size-4 shrink-0\"><path d=\"M13 17H20\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\"></path><path d=\"M5 7L10 12L5 17\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\"></path></svg><span class=\"text-text-secondary shrink-0\">Ran commands</span><span class=\"text-text-tertiary\">1</span></button></div>";
+  for(const [label,activity] of [['Fetched',fetched],['Question failed',failed],['Ran commands',ran]]){
+    draw(activity+final);
+    const row=page.rows()[0];
+    check(row.toolFrame && row.text==='\x60\x60\x60json\n'+payload+'\n\x60\x60\x60','exact native '+label+' status before a verified final body');
+  }
+  const mixed=final.replace(code,'<p>Теперь открою «Сохранить как».</p>'+code+'<p>Проверю окно.</p>');
+  const collapsed=document.querySelector('#collapsed-analysis').innerHTML;
+  const plan='{"$harness":"tool_call","name":"exit_plan_mode","arguments":{"plan":"# Review"}}';
+  const review=mixed.replace(payload,plan);
+  draw(collapsed+ran+collapsed+ran+collapsed+review);
+  check(page.rows()[0].toolFrame, 'a marked tool call survives multiple native command counters and analysis panels');
+  const currentTurn = 'a'.repeat(32);
+  const withTurnId = review.replace('"name":"exit_plan_mode"', '"turn_id":"'+currentTurn+'","name":"exit_plan_mode"');
+  draw(withTurnId+ran);
+  check(page.rows()[0].toolFrame && page.rows()[0].text.includes(currentTurn),
+    'a marked call with turn_id reaches the server for current-delivery validation');
+  draw(mixed.replace('<pre>', '<pre role="status">'));
+  check(!page.rows()[0].toolFrame, 'a code block marked as site status stays inert');
+  draw(mixed.replace('<pre>', '<pre role="toolbar">'));
+  check(!page.rows()[0].toolFrame, 'a code block outside the published reply must stay inert');
+  draw(mixed.replace(code, '<p style="display:none">Private panel</p>'+code));
+  check(page.rows()[0].toolFrame && !page.rows()[0].text.includes('Private panel'),
+    'tool publication omits CSS-hidden content from its rendered explanation');
+  draw(collapsed+review);
+  check(page.rows()[0].toolFrame && !page.rows()[0].text.includes('Thought for'), 'a native collapsed empty analysis panel cannot suppress a marked plan review');
+  draw(collapsed+review.replace('"$harness":"tool_call",',''));
+  check(!page.rows()[0].toolFrame, 'a collapsed analysis panel gives ordinary JSON no authority');
+  draw(collapsed.replace('1 second','12 seconds')+review);
+  check(page.rows()[0].toolFrame, 'the elapsed counter can vary');
+  draw(review+collapsed);
+  check(page.rows()[0].toolFrame, 'analysis after the authored JSON cannot change the command');
+  draw(collapsed.replace('rounded-full"></div>','rounded-full">'+code+'</div>')+review.replace(plan,ordinary));
+  check(!page.rows()[0].toolFrame, 'marked code from inside analysis stays inert');
+  const title='<h1>План готов — отправляю на локальное согласование</h1>';
+  const headed=final.replace(code,'<p>Прочитал <code>status.txt</code>.</p>'+title+code).replace(payload,plan);
+  draw(headed);
+  const reviewFrame=page.rows()[0];
+  check(reviewFrame.toolFrame && reviewFrame.text.includes('status.txt') &&
+    reviewFrame.text.includes('План готов — отправляю на локальное согласование'),
+    'a plain heading and inline code alongside the marked live plan review remain visible');
+  draw(headed.replace(title,'<h6>План <strong>готов</strong></h6>'));
+  check(page.rows()[0].toolFrame && page.rows()[0].text.includes('План готов'), 'inline emphasis in a lower-level heading remains visible');
+  draw(headed.replace('"$harness":"tool_call",',''));
+  check(!page.rows()[0].toolFrame, 'a heading gives ordinary JSON no authority');
+  draw(headed.replace(title,'<ul><li>Read the files.</li><li>Review the plan.</li></ul>'));
+  check(page.rows()[0].toolFrame, 'a neighboring Markdown list cannot suppress an authored command');
+  draw(headed.replace(title,'<p><a href="https://example.com">Reference</a></p>'));
+  check(page.rows()[0].toolFrame, 'a neighboring prose link cannot suppress an authored command');
+  draw(ran+mixed);
+  check(page.rows()[0].toolFrame && !page.rows()[0].text.includes('Ran commands'),'collapsed native command counter is outside the marked answer');
+  draw(ran+mixed.replace(payload,ordinary));
+  check(!page.rows()[0].toolFrame,'command counter cannot authorize ordinary JSON');
+  draw(mixed);
+  check(page.rows()[0].toolFrame && page.rows()[0].text.includes('Проверю окно.'),'WordPad explanation alongside an exact marked command');
+  draw(mixed.replace('«Сохранить как»','<code>Save As</code>'));
+  check(page.rows()[0].toolFrame && page.rows()[0].text.includes('Save As'),'inline code in explanatory paragraph keeps its visible text');
+  for(const accepted of [
+    '{"$harness":"tool_call","arguments":{},"name":"read"}',
+    '{"\\u0024harness":"tool_call","name":"read","arguments":{"items":[{"id":"a"},{"id":"b"}],"$harness":"data","str":"} \\"id\\":"}}'
+  ]){
+    draw(mixed.replace(payload,()=>accepted));check(page.rows()[0].toolFrame,'ordered unique JSON: '+accepted);
+  }
+  draw(mixed.replace('>JSON<','>text<'));
+  const example=page.rows()[0];
+  check(!example.toolFrame && example.text==='Теперь открою «Сохранить как».\n\n\x60\x60\x60text\n'+payload+'\n\x60\x60\x60\nПроверю окно.','verbatim text-fenced documentation with the exact command: '+example.text);
+  for(const [bad,description] of [
+    [mixed.replace(payload,ordinary),'ordinary JSON with the exact live tool arguments'],
+    [mixed.replace(payload,ordinary.replace('"arguments":{','"arguments":{"$harness":"tool_call",')),'nested marker only'],
+    [mixed.replace(payload,payload.replace('"$harness":"tool_call","name":"ask_user_question"','"name":"ask_user_question","$harness":"tool_call"')),'marker in second position'],
+    [mixed.replace(payload,payload.replace('tool_call','tool_call_example')),'wrong marker value'],
+    [mixed.replace(payload,payload.replace('"$harness"','"protocol"').replace('tool_call','arena.harness.v1')),'legacy protocol'],
+    [mixed.replace(payload,payload.replace('"name"', '"$harness":"tool_call","name"')),'duplicate top-level marker'],
+    [mixed.replace(payload,payload.replace('"name"', '"name":"duplicate","\\u006eame"')),'escaped duplicate top-level name'],
+    [mixed.replace(payload,payload.replace('"id"', '"id":"other","id"')),'duplicate nested argument'],
+    [mixed.replace(code,code+code),'multiple command blocks'],
+    [mixed.replace(code,'<pre><code class="language-text">Example</code></pre>'+code),'an extra documentation block'],
+    [mixed.replace(code,'<blockquote>'+code+'</blockquote>'),'quoted code'],
+    [mixed.replace(code,'<section>'+code+'</section>'),'unknown intermediate code container'],
+    [mixed.replace(code,code.replace('class="whitespace-pre-wrap"','class="whitespace-pre-wrap" hidden')),'hidden code'],
+    [mixed.replace(code,code.replace(payload,'<span hidden>'+payload+'</span>')),'hidden code token'],
+    [mixed.replace(code,code.replace('Which shade?','Which<span hidden> </span>shade?')),'hidden space inside an argument string'],
+    [mixed.replace(code,code.replace('Which shade?','Which <span role="toolbar">second </span>shade?')),'a highlighted token filtered by reply serialization'],
+  ]){draw(bad);check(!page.rows()[0].toolFrame,description+' stays inert');}
+  const exposed=[];
+  draw(fetched+final);
+  for(const [selector,attribute,value] of [
+    ['.prose','style','display:none'], ['.prose','aria-hidden','true'],
+    ['.prose','inert',''], ['.prose > pre','hidden',''],
+    ['.prose > pre','style','opacity:0'], ['[data-code-block]','aria-hidden','TRUE'],
+    ['pre.shiki','style','visibility:hidden'], ['code','style','opacity:0'],
+    ['code','aria-hidden','true'], ['code','inert','']
+  ]) {
+    draw(fetched+final);
+    message.querySelector(selector).setAttribute(attribute,value);
+    if (page.rows()[0]?.toolFrame) exposed.push(selector+' '+attribute+'='+value);
+  }
+  draw(failed+final);
+  message.querySelector('.prose').style.visibility='hidden';
+  message.querySelector('.prose > pre').style.visibility='visible';
+  if (page.rows()[0]?.toolFrame) exposed.push('hidden prose with visible code override');
+  draw(failed+final);
+  message.querySelector('code').innerHTML='<span> '+payload.slice(0,7)+'</span><span hidden>'+payload.slice(7)+'</span>';
+  if (page.rows()[0]?.toolFrame) exposed.push('hidden highlighted payload');
+  check(!exposed.length,'a hidden final frame must remain inert: '+exposed.join(', '));
+  for(const [reason,inner] of [
+    ['legacy frame',fetched+final.replace('>JSON<','>arenatool<')],
+    ['a reflected code block',fetched.replace('</a>',code+'</a>')+final.replace(payload,ordinary)],
+    ['a code card containing an unrelated control',fetched+final.replace('</code>','</code><button>Other action</button>')],
+    ['two marked code blocks',fetched+final+final],
+  ]) {
+    draw(inner);check(!page.rows()[0].toolFrame,reason+' must remain inert');
+  }
+  draw(fetched+final);
+  const reflected=message.firstElementChild;message.innerHTML='<blockquote></blockquote>';message.firstChild.append(reflected);
+  check(!page.rows()[0].toolFrame,'native stack reflected inside quoted content stays inert');
+  const intro='<div class="prose prose-base body-base"><p>Checking WordPad.<span aria-hidden="true">hidden commentary</span></p></div>';
+  const activity='<div><button class="flex w-full select-none items-center">Activity</button></div>';
+  const analysis='<div data-state="closed"><button>Analysis</button><div><div class="prose prose-sm text-text-secondary">private reasoning</div></div></div>';
+  const finish=final.replace(code,'<p>My next step.</p>'+code).replace(payload,ordinary);
+  draw(intro+activity+analysis+finish);
+  check(!page.rows()[0].complete,'ambiguous bodies need a visible native completion marker');
+  const stamp=document.createElement('span');
+  stamp.setAttribute('aria-label','Response ended');stamp.textContent='Finished';stamp.style.opacity='0';
+  message.append(stamp);
+  check(!page.rows()[0].complete,'a hidden Response ended marker cannot finalize multiple bodies');
+  stamp.style.opacity='1';
+  const merged=page.rows()[0], expected='Checking WordPad.\n\nMy next step.\n\n\x60\x60\x60json\n'+ordinary+'\n\x60\x60\x60';
+  check(merged.complete && merged.text===expected && !merged.toolFrame,'multiple completed native prose bodies should deliver only their visible answer text, found '+JSON.stringify(merged.text));
+  for(const body of message.querySelectorAll('.prose.prose-base.body-base')) body.style.opacity='0';
+  check(!page.rows()[0].complete && !page.rows()[0].text,'hidden prose bodies cannot become a completed answer');
+  const introBody='<div class="prose prose-base body-base"><p>Проверяю.</p></div>';
+  draw(introBody+mixed);message.append(stamp);
+  check(page.rows()[0].toolFrame,'adjacent final native bodies can carry explanation and the marked call');
+  draw(introBody+'<div><button>Unknown action</button></div>'+mixed);message.append(stamp);
+  check(page.rows()[0].toolFrame,'a separate action between authored bodies cannot change the command');
+  message.dataset.agentTranscriptMessage='true';
+  message.dataset.chatMessageId='final';
+  const populatedAnalysis=collapsed
+    .replace('will-change: transform;', 'will-change: transform; transform: translateY(0px);')
+    .replace('rounded-full"></div>', 'rounded-full"></div><div lang="en" translate="no" class="prose prose-sm text-text-secondary"><p>Hidden native analysis text.</p></div>');
+  const secondAnalysis=collapsed.replace('radix-_r_54_','radix-_r_55_');
+  const combined=populatedAnalysis+introBody+ran+secondAnalysis+mixed;
+  draw(combined);message.append(stamp);
+  const combinedRow=page.rows()[0];
+  check(combinedRow.toolFrame && combinedRow.text.includes('Проверяю.') && !combinedRow.text.includes('Hidden native analysis'),
+    'a single marked call after the exact native split reply and collapsed command counter');
+  for (const markup of [
+    mixed+ran+populatedAnalysis+introBody,
+    introBody+mixed+ran+populatedAnalysis,
+    ran.replace('Ran commands','Уже выполнено')+mixed+introBody,
+  ]) {
+    draw(markup);message.append(stamp);
+    check(page.rows()[0].toolFrame && page.rows()[0].text.includes('Проверяю.'),
+      'authored JSON and explanation can appear in either order, independently of activity labels');
+  }
+  draw(combined.replace(payload,ordinary));message.append(stamp);
+  check(!page.rows()[0].toolFrame,'ordinary JSON remains data in a split reply');
+  draw(combined);message.append(stamp);delete message.dataset.chatMessageId;
+  check(!page.rows()[0].toolFrame,'a native transcript row requires a consistent message identity');
+  message.dataset.chatMessageId='final';
+  const plugPath='M21.4 7.5c.8.8.8 2.1 0 2.8l-2.8 2.8l-7.8-7.8l2.8-2.8c.8-.8 2.1-.8 2.8 0l1.8 1.8l3-3l1.4 1.4l-3 3zm-5.8 5.8l-1.4-1.4l-2.8 2.8l-2.1-2.1l2.8-2.8l-1.4-1.4l-2.8 2.8l-1.5-1.4l-2.8 2.8c-.8.8-.8 2.1 0 2.8l1.8 1.8l-4 4l1.4 1.4l4-4l1.8 1.8c.8.8 2.1.8 2.8 0l2.8-2.8l-1.4-1.4z';
+  const connectorText='Deepseek Harness Desktop rejected this request.';
+  const connector='<div class="flex select-none items-center gap-1.5"><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true" role="img" class="iconify iconify--mdi text-text-tertiary opacity-70 pointer-events-none select-none size-4 shrink-0" width="16" height="16" viewBox="0 0 24 24"><path fill="currentColor" d="'+plugPath+'"></path></svg><span class="body-sm min-w-0 truncate leading-4 text-interactive-negative">'+connectorText+'</span></div>';
+  const thinking=populatedAnalysis.replace('Hidden native analysis text.', 'Use <code node="[object Object]" class="rounded px-1.5 py-0.5 bg-surface-tertiary font-mono text-[0.9em] text-text-primary font-medium">local edit</code>.');
+  const connectorReply=thinking+connector+secondAnalysis+mixed;
+  draw(connectorReply);message.append(stamp);
+  check(page.rows()[0].toolFrame && !page.rows()[0].text.includes(connectorText),
+    'a closed native connector rejection does not suppress a separate marked local reply');
+  draw(connectorReply.replace(connectorText,'Localized status')+connector);message.append(stamp);
+  check(page.rows()[0].toolFrame,'connector labels and repeated activity do not change an authored command');
+  draw(connectorReply.replace(payload,ordinary));message.append(stamp);
+  check(!page.rows()[0].toolFrame,'connector activity cannot authorize ordinary JSON');
+  const filePreview='<div><button aria-label="Expand">Wrote audit.md</button><div><div class="prose prose-base body-base">'+
+    '<p>File bytes</p>'+code+'</div></div></div>';
+  for (const body of ['<blockquote class="prose">'+code+'</blockquote>',
+    '<div class="markdown" role="status">'+code+'</div>']) {
+    message.dataset.messageAuthorRole='assistant';
+    message.innerHTML=body;
+    check(!page.rows()[0].toolFrame,'a prose selector does not give a quote or status ownership of a marked call');
+    delete message.dataset.messageAuthorRole;
+  }
+  draw(filePreview+mixed.replace(payload,ordinary));message.append(stamp);
+  const previewAndAnswer=page.rows()[0];
+  check(previewAndAnswer.complete && previewAndAnswer.text.includes(ordinary) &&
+    !previewAndAnswer.text.includes('File bytes') && !previewAndAnswer.toolFrame,
+    'a native file preview cannot suppress or impersonate the authored answer');
+  draw(filePreview+mixed);message.append(stamp);
+  check(page.rows()[0].toolFrame,'code in a separate file preview cannot suppress the single authored JSON command');
+  const emptyShell = document.createElement('div');
+  emptyShell.id = 'chat-message-native-empty';
+  emptyShell.dataset.agentTranscriptMessage = 'true';
+  emptyShell.dataset.chatMessageId = 'native-empty';
+  emptyShell.innerHTML = '<div class="relative overflow-hidden bg-surface-primary rounded-xl border w-full border-transparent">'+
+    '<div class="px-3 pb-3"><div class="flex flex-col gap-2"></div><div class="mt-3 flex flex-col gap-3">'+
+    '<div class="flex flex-wrap items-center justify-between gap-2"><div class="flex flex-wrap items-center gap-1"></div>'+
+    '<div class="ms-auto flex flex-wrap items-center justify-end gap-x-3 gap-y-1"></div></div></div></div></div>';
+  message.before(emptyShell);
+  check(page.rows().length===1 && page.rows()[0].toolFrame, 'an empty native assistant shell does not hide a following reply');
+  message.after(emptyShell);
+  check(page.rows().length===2 && page.rows()[1].role==='unknown',
+    'a trailing empty shell keeps an earlier tool block from looking like the newest reply');
+  message.before(emptyShell);
+  const action = document.createElement('button');
+  emptyShell.firstElementChild.append(action);
+  check(page.rows().length===2, 'an interactive shell remains part of the transcript even with no text');
+  action.remove();
+  emptyShell.id = message.id;
+  emptyShell.dataset.chatMessageId = message.dataset.chatMessageId;
+  check(page.rows().length===2, 'a duplicate native identity cannot be discarded as an empty shell');
+  emptyShell.id = 'chat-message-native-empty';
+  emptyShell.dataset.chatMessageId = 'native-empty';
+  message.dataset.messageId = 'native-empty';
+  check(page.rows().length===2, 'a matching explicit message identity also preserves the empty shell');
+  delete message.dataset.messageId;
+  emptyShell.querySelector('.gap-2').innerHTML = '<div class="prose"><p>Late response</p></div>';
+  check(page.rows().length===2 && page.rows()[0].text==='Late response',
+    'the empty shell is reconsidered as soon as the site renders a reply');
+  emptyShell.remove();
+  message.innerHTML='<section>'+mixed+'</section>';
+  check(!page.rows()[0].toolFrame,'unknown ancestor does not own the final answer');
+  document.querySelector('#out').textContent='All fixture checks passed';
+} catch(error){document.querySelector('#out').textContent=error.message;}
+</script>

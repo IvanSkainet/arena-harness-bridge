@@ -1,0 +1,76 @@
+<!doctype html><meta charset="utf-8"><title>Native Arena questions</title>
+<main><div id="chat-message-native"><div class="bg-surface-primary rounded-xl border w-full"><div class="px-3 pb-3"><div class="flex flex-col gap-2">
+<div class="prose prose-base body-base">Choose a color.</div>
+<div style="opacity:1"><div class="mb-1 flex w-full max-w-[600px] flex-col items-start overflow-hidden rounded-md border border-border-faint bg-surface-secondary">
+<div class="border-border-faint flex w-full items-start justify-between gap-3 border-b p-3"><span>Which color?</span><button type="button">Skip</button></div>
+<div role="radiogroup" aria-label="Which color?"><button type="button" role="radio" aria-checked="false">Amber</button><button type="button" role="radio" aria-checked="false">Indigo</button><input type="text"><button type="button" disabled aria-label="Submit custom response">→</button></div>
+</div></div></div></div></div></div></main><output id="out">running</output>
+<script src="../core.js"></script><script src="../generated-images.js"></script><script src="../native-questions.js"></script><script src="../adapter.js"></script><script>
+(async () => {
+  const check=(ok,why)=>{if(!ok)throw Error(why)};
+  const page=new ArenaPage(document), row=()=>page.rows().at(-1);
+  const widget=document.querySelector('[style]'), stack=widget.parentElement, body=stack.querySelector('.prose');
+  const original=row().nativeQuestion;
+  check(original?.status==='active' && original.question==='Which color?' && original.options.join(',')==='Amber,Indigo','recognize active Arena question and its exact options');
+  const group=widget.querySelector('[role=radiogroup]'), customField=group.querySelector('input'), customButton=group.querySelector('[aria-label]');
+  customField.remove();customButton.remove();
+  check(group.children.length===2 && row().nativeQuestion?.status==='active','live choice-only group with exactly two direct radio buttons');
+  const source=document.querySelector('#chat-message-native');
+  source.insertAdjacentHTML('beforeend','<span hidden aria-label="Response ended at 12:01">12:01</span><span style="display:none" aria-label="Response ended at 12:02">12:02</span>');
+  const markers=source.querySelectorAll('span[aria-label*="Response ended"]');
+  check(row().nativeQuestion?.status==='active' && !row().complete,'hidden Response ended templates cannot close enabled Arena choices');
+  markers[1].style.display='inline';
+  check(row().nativeQuestion?.status==='closed' && row().complete,'a visible Response ended marker after a hidden one closes the card');
+  markers.forEach(node=>node.remove());
+  const unexpected=document.createElement('button');unexpected.textContent='Other action';group.append(unexpected);
+  check(!row().nativeQuestion,'unexpected interactive control disqualifies choice-only widget');
+  unexpected.remove();group.append(customField,customButton);
+  let clicked=[];
+  for(const button of widget.querySelectorAll('button'))button.onclick=()=>{clicked.push(button.innerText);button.setAttribute('aria-checked','true')};
+  const request={id:original.id,question:original.question,options:original.options,answer:'Indigo'};
+  for(const invalid of [{...request,id:'chat-message-other'},{...request,options:['Indigo','Amber']},{...request,answer:'Blue'}]) {
+    try{page.selectNativeAnswer(invalid)}catch{}
+  }
+  check(!clicked.length,'wrong owner, labels or answer cannot click');
+  const status=document.createElement('div');status.className='text-text-primary rounded-md border border-border-faint bg-surface-secondary/50 my-1 shadow-none';
+  status.innerHTML='<strong>Question failed</strong><p>The tool failed.</p>';widget.before(status);
+  check(row().nativeQuestion?.status==='failed' && row().text.includes('Indigo') && row().text.includes('Question failed') && !row().toolFrame,'failed question visible in final text even though radios remain enabled');
+  try{page.selectNativeAnswer(request)}catch{}
+  check(!clicked.length,'failed card must never accept a selection');
+  status.remove();
+  const liveCard=widget.firstElementChild;
+  stack.append(liveCard);liveCard.before(status);
+  check(row().nativeQuestion?.status==='failed','a direct native card honors its actual sibling failure status');
+  status.remove();widget.append(liveCard);
+  body.append(widget); check(!row().nativeQuestion,'widget markup inside assistant prose stays inert');stack.append(widget);
+  const custom=widget.querySelector('input');custom.value='My unfinished answer';
+  try{page.selectNativeAnswer(request)}catch{}
+  check(!clicked.length && custom.value==='My unfinished answer','preserve a manually typed widget response');
+  custom.value='';
+  page.selectNativeAnswer(request);
+  check(clicked.join(',')==='Indigo' && row().nativeQuestion?.selected==='Indigo','only explicitly chosen indexed radio is activated');
+  try{page.selectNativeAnswer(request)}catch{}
+  check(clicked.length===1,'checked card cannot repeat selection');
+  const container=widget.firstElementChild;
+  stack.append(container);widget.remove();
+  container.innerHTML='<div class="border-border-faint flex w-full items-center gap-2 border-b px-3 py-2"><span class="body-sm text-text-secondary">Summary</span></div><div class="border-border-faint flex w-full flex-col gap-0.5 border-b p-3"><div class="body-base text-text-tertiary">Which color?</div><div class="flex items-center gap-1"><svg class="text-interactive-positive"></svg><span class="body-base text-text-secondary font-medium">Indigo</span></div></div>';
+  check(row().nativeQuestion?.summary && row().nativeQuestion.selected==='Indigo','direct Summary verifies exact question and selected result after the interactive card disappears');
+  body.remove();
+  container.innerHTML='<div class="flex w-full items-center gap-2 p-3"><svg class="text-text-tertiary shrink-0"></svg><span class="body-sm text-text-tertiary italic">Questions dismissed</span><svg class="text-interactive-positive shrink-0"></svg></div>';
+  document.querySelector('#chat-message-native').insertAdjacentHTML('beforeend','<span aria-label="Response ended">Ended</span>');
+  const dismissed=row();
+  check(dismissed.role==='assistant' && dismissed.complete && dismissed.text==='Questions dismissed' && !dismissed.toolFrame,
+    'standalone dismissal is completed assistant status text');
+  try{page.selectNativeAnswer(request)}catch{}
+  check(clicked.length===1,'dismissal never selects an answer');
+  document.querySelector('main').insertAdjacentHTML('beforeend','<div id="chat-message-next"><div class="bg-surface-primary rounded-xl border w-full"><div class="prose">Hello again.</div></div><span aria-label="Response ended">Ended</span></div>');
+  const chat='https://arena.ai/agent/binding-fixture';
+  ArenaBridge.conversation=()=>chat;
+  let receiver;
+  Object.defineProperty(window.chrome,'runtime',{configurable:true,value:{id:'fixture',onMessage:{addListener:fn=>receiver=fn}}});
+  await new Promise((resolve,reject)=>{const script=document.createElement('script'); script.src='../content.js';script.onload=resolve;script.onerror=reject;document.head.append(script);});
+  const prepared=await new Promise(resolve=>receiver({type:'prepare',chat},{id:'fixture'},resolve));
+  check(prepared.ok && prepared.pageKey,'existing dismissal followed by ordinary assistant prose can bind without replay');
+  document.querySelector('#out').textContent='All fixture checks passed';
+})().catch(error=>document.querySelector('#out').textContent=error.message);
+</script>

@@ -1,0 +1,272 @@
+'use strict';
+importScripts('core.js');
+
+async function request(token, endpoint, body) {
+  const response = await fetch('http://127.0.0.1:8766/v1/' + endpoint, {
+    method: 'POST', credentials: 'omit', redirect: 'error', cache: 'no-store',
+    referrerPolicy: 'no-referrer', signal: AbortSignal.timeout(7000),
+    headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  const result = await response.json();
+  if (!response.ok) throw Error(result.error || 'Terminal returned HTTP ' + response.status);
+  return result;
+}
+
+const address = link => ({ binding: link.binding, chat: link.chat, tab: link.tab });
+const getLink = async () => (await chrome.storage.session.get('link')).link;
+const save = link => chrome.storage.session.set({ link });
+
+function imagePayload(images) {
+  if (!Array.isArray(images) || !images.length || images.length > ArenaBridge.maxGeneratedImages)
+    throw Error('Invalid generated image count.');
+  let bytes = 0;
+  return images.map(({mediaType,data}) => {
+    if (!['image/png','image/jpeg','image/webp'].includes(mediaType) || typeof data !== 'string'
+        || !data.length || data.length % 4 || data.length > 11184812 || !/^[A-Za-z0-9+/]+={0,2}$/.test(data))
+      throw Error('Invalid generated image data.');
+    bytes += data.length / 4 * 3 - (data.endsWith('==') ? 2 : data.endsWith('=') ? 1 : 0);
+    if (bytes > 8 * 1024 ** 2) throw Error('Generated images exceed the 8 MiB limit.');
+    return {mediaType,data};
+  });
+}
+
+async function tabMessage(tab, message) {
+  let result;
+  try { result = await chrome.tabs.sendMessage(tab, message, { frameId: 0 }); }
+  catch { throw Error('Open the Agent Mode conversation and reload its tab after installing the extension.'); }
+  if (!result?.ok) throw Error(result?.error || 'The Arena tab did not confirm the request.');
+  return result;
+}
+
+async function pauseLink(link, reason) {
+  delete link.checkDocument;
+  link.paused = reason;
+  if (link.receipt) {
+    await save(link);
+    await request(link.token, 'event', link.receipt);
+    delete link.receipt;
+    delete link.lease;
+  }
+  link.notice ??= link.lease ? ArenaBridge.event('uncertain', { job: link.lease, text: reason }) : ArenaBridge.event('busy', { text: reason });
+  await save(link);
+  await request(link.token, 'event', { ...link.notice, ...address(link) });
+  delete link.notice;
+  delete link.lease;
+  await save(link);
+}
+
+const navigationNotice = 'Bound tab navigated or reloaded. Inspect the chat and reconnect.';
+const awaitingDocument = 'Waiting for Chrome to confirm the bound conversation.';
+
+async function documentProof(link) {
+  let timer;
+  try {
+    return await Promise.race([
+      tabMessage(link.tab,{type:'verifyDocument',chat:link.chat,pageKey:link.pageKey,binding:link.binding}).catch(() => null),
+      new Promise(resolve => { timer = setTimeout(() => resolve(null),3000); })
+    ]);
+  } finally { clearTimeout(timer); }
+}
+
+async function verifyTab(link, lastStatus) {
+  const readTab = () => chrome.tabs.get(link.tab).catch(() => null);
+  let tab = await readTab();
+  const currentChat = () => ArenaBridge.conversation(tab?.url);
+  if (!link.checkDocument && currentChat() === link.chat && tab.status === 'complete' && !tab.pendingUrl && !tab.discarded)
+    return true;
+  if (!link.checkDocument) { link.checkDocument = true; await save(link); }
+  let proof;
+  const initialStatus = tab?.status;
+  if (!tab?.pendingUrl && currentChat() === link.chat && !tab.discarded) {
+    proof = await documentProof(link);
+    tab = await readTab();
+  }
+  const chat = currentChat();
+  if (tab?.url && chat !== link.chat) {
+    await pauseLink(link, navigationNotice);
+    return false;
+  }
+  // Chrome can still deliver messages to the old document before a navigation commits.
+  if (tab?.pendingUrl) return false;
+  if (initialStatus === 'loading' && tab?.status === 'complete') return false;
+  const complete = (tab?.status || lastStatus) === 'complete';
+  if (chat === link.chat && !tab.discarded && proof?.pageKey === link.pageKey && proof.chat === link.chat && proof.binding === link.binding) {
+    if (complete) { delete link.checkDocument; await save(link); }
+    return true;
+  }
+  if (complete) await pauseLink(link, navigationNotice);
+  return false;
+}
+
+async function popup(message, link) {
+  if (message.type === 'targets') {
+    const tabs = await chrome.tabs.query({ url: ['https://arena.ai/*', 'https://www.arena.ai/*'] });
+    return { targets: tabs.map(tab => ({ tab: tab.id, chat: ArenaBridge.conversation(tab.url) })).filter(item => item.chat) };
+  }
+  const tab = Number.isInteger(message.tab) && message.tab >= 0 ? await chrome.tabs.get(message.tab)
+    : (await chrome.tabs.query({ active: true, currentWindow: true }))[0];
+  if (message.type === 'status') {
+    if (!link) return { status: 'Enter the pairing token from the project terminal.' };
+    if (link.paused) return { status: link.chat + '\n' + link.paused };
+    const page = await tabMessage(link.tab, { type: 'status', pageKey: link.pageKey });
+    return { status: link.chat + '\n' + page.status };
+  }
+  const chat = ArenaBridge.conversation(tab?.url);
+  if (!chat) throw Error('Open one saved Arena Agent Mode conversation (/agent/<id>).');
+  if (message.type === 'bind') {
+    if (tab.pendingUrl) throw Error(awaitingDocument);
+    if (!message.token?.trim()) throw Error('Enter the token from the terminal.');
+    const prepared = await tabMessage(tab.id, { type: 'prepare', chat });
+    if (prepared.chat !== chat || !prepared.pageKey) throw Error('The Arena tab changed while pairing.');
+    const token = message.token.trim();
+    const settledDelivery = prepared.settledDelivery;
+    const settlement = typeof settledDelivery === 'string' && /^[a-f\d]{32}$/.test(settledDelivery) ? {settledDelivery} : {};
+    const result = await request(token, 'bind', { chat, tab: tab.id, ...settlement });
+    if (typeof result.binding !== 'string' || !result.binding) throw Error('Invalid binding response.');
+    const next = { token, tab: tab.id, chat, binding: result.binding, pageKey: prepared.pageKey };
+    if (result.lease) {
+      next.lease = result.lease;
+      next.notice = { id:'rebind-' + result.binding + '-' + result.lease, kind:'uncertain',
+        job:result.lease, text:'An offered delivery survived reconnect. Inspect it in the terminal.' };
+      await save(next);
+      await request(token,'event',{...next.notice,...address(next)});
+      delete next.notice;
+      delete next.lease;
+    }
+    await save(next);
+    const reset = Boolean(link?.paused || link?.notice || link?.lease || result.lease);
+    await tabMessage(tab.id, { type: 'attach', chat, pageKey: next.pageKey, binding: next.binding, context:result.context, reset });
+    return { status: 'Connected to ' + chat };
+  }
+  if (message.type !== 'skill' || !link || link.paused || tab.id !== link.tab || chat !== link.chat)
+    throw Error('Select the bound Arena conversation.');
+  if (!await verifyTab(link)) throw Error(link.paused || awaitingDocument);
+  const name = String(message.name || '').trim();
+  if (!name || name.length > 150) throw Error('Enter a local skill name.');
+  const target = { chat, pageKey: link.pageKey, binding: link.binding };
+  await tabMessage(tab.id, { type: 'holdSkill', ...target });
+  try {
+    const result = await request(link.token, 'skill', { ...address(link), name });
+    if (typeof result.content !== 'string' || !result.content) throw Error('The terminal returned an empty skill.');
+    await tabMessage(tab.id, { type: 'applySkill', ...target, name, content: result.content });
+  } finally {
+    await tabMessage(tab.id, { type: 'releaseSkill', ...target }).catch(() => {});
+  }
+  return { status: 'Clicked Send with ' + name + '. Check the new user message in Arena.' };
+}
+
+async function dispatch(message, sender) {
+  if (sender.id !== chrome.runtime.id) throw Error('Unknown sender.');
+  const link = await getLink();
+  if (sender.url?.split(/[?#]/, 1)[0] === chrome.runtime.getURL('popup.html')) return popup(message, link);
+  if (!link || sender.frameId !== 0 || sender.documentLifecycle && sender.documentLifecycle !== 'active'
+      || sender.tab?.id !== link.tab || message.pageKey !== link.pageKey
+      || message.binding !== link.binding) throw Error('Document is not paired.');
+  if (message.type === 'depart') {
+    if (!link.paused || link.receipt || link.notice)
+      await pauseLink(link, 'Bound tab changed conversation. Return to the original chat and reconnect.');
+    return {};
+  }
+  if (link.paused || message.chat !== link.chat || ArenaBridge.conversation(sender.url) !== link.chat)
+    throw Error('Conversation changed. Reconnect from the original chat.');
+  if (!await verifyTab(link)) throw Error(link.paused || awaitingDocument);
+  if (message.type === 'poll') {
+    if (message.recoverTranscript !== undefined) {
+      const result = await request(link.token,'poll',{
+        ...address(link),ready:false,recoverTranscript:message.recoverTranscript
+      });
+      return {recoverTranscript:result.recoverTranscript===true};
+    }
+    const supportsNativeQuestions = message.supportsNativeQuestions === true;
+    const nativeQuestionId = supportsNativeQuestions && !link.lease ? message.nativeQuestionId : undefined;
+    if (nativeQuestionId!==undefined && (typeof nativeQuestionId!=='string' || !nativeQuestionId || nativeQuestionId.length>256))
+      throw Error('Invalid native question identity.');
+    const result = await request(link.token, 'poll', {
+      ...address(link), ready: message.ready === true && !link.lease,
+      recoveredTranscript:message.recoveredTranscript,
+      supportsPngBatch: message.supportsPngBatch === true, supportsNativeQuestions, nativeQuestionId,
+      nativeQuestionClosed:Boolean(nativeQuestionId && message.nativeQuestionClosed===true)
+    });
+    if (result.job) { link.lease = result.job.id; await save(link); }
+    else if (result.lease === null && link.lease) { delete link.lease; delete link.receipt; await save(link); }
+    return { job: result.job, queued: result.queued === true, context:result.context,
+      supportsNativeQuestions:supportsNativeQuestions && result.supportsNativeQuestions===true,
+      supportsImageChoices:supportsNativeQuestions && result.supportsImageChoices===true,
+      nativeQuestionClosed:result.nativeQuestionClosed };
+  }
+  if (message.type !== 'event' || !message.event) throw Error('Invalid content request.');
+  const { id, kind, text, job } = message.event;
+  const body = { ...address(link), id, kind, text, job };
+  if (kind === 'blocked' && message.event.transcriptChanged === true) body.transcriptChanged = true;
+  if (kind === 'user' || kind === 'assistant') body.recoveredTranscript = message.recoveredTranscript;
+  if (message.event.choicePreviews!==undefined && message.event.nativeQuestion===undefined)
+    throw Error('Arena preview images require a native question.');
+  if (message.event.nativeQuestion!==undefined) {
+    const {nativeQuestion,replyTo,choicePreviews} = message.event;
+    if (kind!=='assistant' || message.supportsNativeQuestions!==true || message.event.toolFrame || message.event.images ||
+        typeof replyTo!=='string' || !replyTo || replyTo.length>256 || !ArenaBridge.validQuestion(nativeQuestion))
+      throw Error('Invalid native Arena question.');
+    Object.assign(body,{nativeQuestion,replyTo,supportsNativeQuestions:true});
+    if (choicePreviews!==undefined) body.choicePreviews=imagePayload(choicePreviews);
+  } else if (kind === 'assistant' && message.event.images !== undefined) {
+    const replyTo = message.event.replyTo;
+    if (typeof replyTo !== 'string' || !replyTo || replyTo.length > 256) throw Error('Missing generated image turn identity.');
+    body.replyTo = replyTo;
+    body.images = imagePayload(message.event.images);
+  } else if (kind === 'assistant' && typeof message.event.replyTo === 'string' &&
+      message.event.replyTo.length > 0 && message.event.replyTo.length <= 256) {
+    body.replyTo = message.event.replyTo;
+    if (message.event.toolFrame===true && /^[0-9a-f]{32}$/.test(body.replyTo)) body.toolFrame = true;
+  }
+  if (message.event.toolSource !== undefined) {
+    if (!body.toolFrame || typeof message.event.toolSource !== 'string' ||
+        !message.event.toolSource.length || message.event.toolSource.length > 180000)
+      throw Error('Invalid Arena tool source.');
+    body.toolSource = message.event.toolSource;
+  }
+  if (kind === 'user' && typeof message.event.contextId === 'string') body.contextId = message.event.contextId;
+  const delivery = job && link.lease === job && ['sent','uncertain','blocked','limited'].includes(kind);
+  if (delivery) {
+    link.receipt = body;
+    await save(link);
+  }
+  const result=await request(link.token, 'event', body);
+  if (delivery) {
+    delete link.receipt;
+    delete link.lease;
+    await save(link);
+  }
+  return body.nativeQuestion ? {nativeQuestionHandled:result.nativeQuestionHandled,
+    nativeQuestionId:result.nativeQuestionId,replyTo:result.replyTo} : {};
+}
+
+let sequence = Promise.resolve();
+function serial(work) {
+  const next = sequence.then(work);
+  sequence = next.catch(() => {});
+  return next;
+}
+
+chrome.runtime.onMessage.addListener((message, sender, respond) => {
+  serial(() => dispatch(message, sender)).then(result => respond({ ...result, ok: true }),
+    error => respond({ ok: false, error: error.message }));
+  return true;
+});
+
+function suspendTab(id, reason) {
+  serial(async () => {
+    const link = await getLink();
+    if (link?.tab === id && !link.paused) await pauseLink(link, reason);
+  }).catch(() => {});
+}
+chrome.tabs.onRemoved.addListener(id => suspendTab(id, 'Bound tab closed.'));
+chrome.tabs.onUpdated.addListener((id, changes) => {
+  if (!changes.url && changes.status !== 'loading' && changes.status !== 'complete') return;
+  serial(async () => {
+    const link = await getLink();
+    if (link?.tab !== id || link.paused) return;
+    if (!link.checkDocument) { link.checkDocument = true; await save(link); }
+    await verifyTab(link, changes.status);
+  }).catch(() => {});
+});

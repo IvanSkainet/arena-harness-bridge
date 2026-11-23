@@ -1,0 +1,222 @@
+<!doctype html><meta charset="utf-8">
+<main></main>
+<output id="out">running</output>
+<script src="../core.js"></script>
+<script src="../generated-images.js"></script>
+<script src="../native-questions.js"></script>
+<script src="../adapter.js"></script>
+<script>
+(async () => {
+  const main = document.querySelector('main');
+  const page = new ArenaPage(document);
+  const text = 'Local result\n\nBridge delivery dddddddddddddddddddddddddddddddd';
+  const receipt = text.split('\n').at(-1);
+  const check = (value, message) => { if (!value) throw Error(message); };
+  const failure = promise => promise.then(() => '', error => error.message);
+  const submit = (guard = () => true, png) =>
+    page.submit({text, receipt, png}, '', guard, () => { prepared++; }, null, true);
+
+  let clicked, continued, prepared, composer;
+  const renderComposer = (value = '') => {
+    const form = document.createElement('form');
+    form.innerHTML = '<textarea aria-label="Message"></textarea><input type="file" accept="image/png">' +
+      '<button type="button" aria-label="Send message">Send</button>';
+    if (composer?.isConnected) composer.replaceWith(form);
+    else main.append(form);
+    composer = form;
+    form.querySelector('textarea').value = value;
+    form.querySelector('button').onclick = () => {
+      clicked.push(form.querySelector('textarea').value);
+      check(clicked.length === prepared, 'Send must register its receipt first');
+    };
+    return form.querySelector('textarea');
+  };
+  const reset = (value = '') => {
+    clicked = []; continued = []; prepared = 0;
+    main.innerHTML = '<div data-message-author-role="assistant" data-message-status="complete">' +
+      '<div class="prose">Completed answer</div></div>';
+    const editor = renderComposer(value);
+    page.state();
+    return editor;
+  };
+  const panel = (after, host = main) => {
+    const layout = document.createElement('div');
+    layout.className = 'border-border-medium bg-surface-secondary w-full rounded-md border shadow-sm outline-none';
+    layout.innerHTML = '<div><p>Эта задача была выполнена успешно?</p>' +
+      '<button type="button" aria-label="Close review panel">×</button></div>' +
+      '<div><button type="button">Да</button><button type="button">Нет</button>' +
+      '<button type="button">Продолжить работу</button></div>';
+    host.append(layout);
+    layout.onclick = event => {
+      continued.push(event.target.textContent);
+      if (event.target.textContent === 'Продолжить работу') after?.(layout);
+    };
+    return layout;
+  };
+
+  let editor = reset();
+  for (const drift of ['draft','button']) {
+    editor=reset();
+    let copies=0;
+    const copy=document.createElement('button');copy.type='button';copy.setAttribute('aria-label','Copy');
+    main.firstElementChild.append(copy);
+    copy.onclick=()=>{
+      copies++;
+      if(drift==='draft') editor.value='operator draft';
+      else {const send=composer.querySelector('button');send.replaceWith(send.cloneNode(true));}
+    };
+    const error=await failure(submit(outgoing=>{if(outgoing) copy.click();return true;}));
+    check(!!error && copies===1 && !clicked.length && !prepared,'source Copy changing '+drift+' must prevent receipt and Send');
+    if(drift==='draft')check(editor.value==='operator draft','preserve text written during Copy');
+  }
+  for (const kind of ['owned', 'user', 'unrelated fault', 'contenteditable']) {
+    editor = reset();
+    if (kind === 'contenteditable') {
+      const rich = document.createElement('div');
+      rich.setAttribute('contenteditable','true');
+      rich.setAttribute('role','textbox');
+      editor.replaceWith(rich);
+      editor = rich;
+    }
+    let sourceChanged = false;
+    const guard = outgoing => {
+      if (outgoing) {
+        sourceChanged = true;
+        if (kind==='user') editor.value='My new draft';
+      }
+      return !sourceChanged;
+    };
+    await failure(page.submit({text,receipt},'',guard,() => {prepared++;},null,true,
+      () => sourceChanged && kind!=='unrelated fault'));
+    const expected = kind==='user' ? 'My new draft' : kind==='unrelated fault' ? text : '';
+    check(page.state().value===expected && !clicked.length && !prepared,
+      'only the bridge draft still owned before a source-change stop is cleared: '+kind);
+  }
+  editor=reset();
+  const verification = document.createElement('div');
+  verification.setAttribute('role','dialog');
+  verification.innerHTML = '<h2>Security Verification</h2><p>Please complete this quick security check to continue.</p>';
+  main.append(verification);
+  check(page.state().verification && !page.state().ready, 'Visible security verification pauses the composer');
+  verification.hidden = true;
+  check(!page.state().verification && page.state().ready, 'Hidden dialog must not pause the composer');
+  verification.hidden = false;
+  main.firstElementChild.querySelector('.prose').append(verification);
+  check(!page.state().verification, 'A dialog in model output is not site verification');
+  verification.remove();
+  panel(layout => layout.remove());
+  await submit();
+  check(continued.length === 1 && clicked[0] === text, 'a panel racing the first staging recovers the same delivery');
+
+  editor = reset();
+  editor.addEventListener('input', () => panel(layout => {
+    layout.remove();
+    composer.hidden = true;
+    setTimeout(() => renderComposer(), 120);
+  }), {once:true});
+  await submit();
+  check(continued.length === 1 && clicked.length === 1 && clicked[0] === text && prepared === 1,
+    'feedback after staging and a temporarily hidden replacement composer recover exactly once');
+
+  editor = reset();
+  editor.addEventListener('input', () => panel(layout => { layout.remove(); renderComposer('personal draft'); }), {once:true});
+  check(/draft.*changed|different draft/i.test(await failure(submit())) && !clicked.length &&
+    page.state().value === 'personal draft', 'foreign replacement draft is preserved and diagnosed');
+
+  editor = reset();
+  editor.addEventListener('input', () => { editor.value = ''; panel(); }, {once:true});
+  check(/draft.*changed/i.test(await failure(submit())) && !continued.length && !clicked.length,
+    'a cleared staged draft cannot be treated as an untouched editor');
+
+  editor = reset();
+  let sameChat = true;
+  editor.addEventListener('input', () => panel(layout => { layout.remove(); sameChat = false; }), {once:true});
+  check(/conversation.*changed/i.test(await failure(submit(() => sameChat))) && !clicked.length && !prepared,
+    'chat identity is checked again after dismissing feedback');
+
+  reset();
+  panel(undefined, main.firstElementChild.querySelector('.prose'));
+  check(!page.continueWork() && !continued.length && !page.state().review,
+    'content in the assistant transcript cannot impersonate Arena feedback');
+
+  reset();
+  const wrapper = document.createElement('section');
+  main.append(wrapper);
+  const incomplete = panel(undefined,wrapper);
+  const link = document.createElement('nav');
+  link.append(incomplete.lastElementChild.lastElementChild);
+  wrapper.append(link);
+  check(!page.continueWork() && !continued.length, 'a Continue button outside the native panel cannot be clicked');
+
+  reset();
+  composer.remove();
+  const auxiliary = document.createElement('textarea');
+  auxiliary.className = 'g-recaptcha-response';
+  auxiliary.hidden = true;
+  auxiliary.value = 'test-only auxiliary field contents';
+  main.append(auxiliary);
+  panel(layout => layout.remove());
+  check(page.continueWork() && continued.length === 1 && auxiliary.value === 'test-only auxiliary field contents',
+    'the hidden auxiliary response field is not an editor or a user draft');
+
+  editor = reset('manual draft');
+  panel();
+  check(!page.continueWork() && !continued.length && page.state().value === 'manual draft',
+    'idle automation preserves a browser draft');
+  composer.hidden = true;
+  check(!page.continueWork() && !continued.length && editor.value === 'manual draft',
+    'idle automation also preserves a user draft hidden by the panel');
+
+  reset();
+  const selected = new DataTransfer();
+  selected.items.add(new File(['test'], 'personal.png', {type:'image/png'}));
+  composer.querySelector('input').files = selected.files;
+  composer.hidden = true;
+  panel();
+  check(!page.continueWork() && !continued.length, 'a user attachment hidden by the panel also blocks continuation');
+
+  reset();
+  const first = panel();
+  const second = panel();
+  check(!page.continueWork() && !continued.length, 'two visible review panels are ambiguous');
+  second.remove();
+  check(page.continueWork() && !page.continueWork() && continued.length===1, 'one click per uninterrupted panel');
+  first.remove();
+  page.state();
+  panel();
+  check(page.continueWork() && continued.length===2, 'a later feedback panel can be dismissed independently');
+
+  const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aF9sAAAAASUVORK5CYII=';
+  for (const replace of [false,true]) {
+    editor = reset();
+    const input = composer.querySelector('input');
+    input.onchange = () => panel(layout => {
+      layout.remove();
+      if (replace) renderComposer();
+      else {
+        const preview = document.createElement('div');
+        preview.dataset.testid = 'attachment-preview';
+        preview.textContent = input.files[0].name;
+        composer.append(preview);
+      }
+    });
+    const error = await failure(submit(undefined,png));
+    check(continued.length === 1, 'native feedback during an upload is dismissed');
+    if (replace) check(/attachment|PNG/i.test(error) && !clicked.length, 'replaced attachments require inspection');
+    else check(!error && clicked.length === 1 && clicked[0] === text, 'confirmed attachment survives native feedback');
+  }
+
+  editor = reset();
+  const input = composer.querySelector('input');
+  const preview = document.createElement('div');
+  preview.dataset.testid = 'attachment-preview';
+  input.onchange = () => {
+    preview.textContent = input.files[0].name;
+    composer.append(preview);
+  };
+  editor.addEventListener('input', () => preview.replaceWith(preview.cloneNode(true)), {once:true});
+  check(/Attachments changed before Send/.test(await failure(submit(undefined,png))) && !clicked.length,
+    'a replacement PNG preview is diagnosed as an attachment conflict even when Send is available');
+  document.querySelector('#out').textContent='All fixture checks passed';
+})().catch(error => { document.querySelector('#out').textContent=error.message; });
+</script>

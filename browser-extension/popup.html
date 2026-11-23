@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Arena Harness Bridge</title>
+<style>
+  :root {color-scheme: light dark; font: 15px/1.45 system-ui, sans-serif}
+  body {width: 360px; max-width: calc(100vw - 40px); margin: 20px}
+  h1 {font-size: 20px; margin: 0 0 16px}
+  label {display: block; margin: 12px 0 4px}
+  input,select,button {box-sizing:border-box; font:inherit; width:100%; padding:7px}
+  button {margin-top:8px; cursor:pointer}
+  output {display:block; margin-top:18px; white-space:pre-line; overflow-wrap:anywhere}
+</style></head>
+<body><h1>Arena Harness Bridge</h1>
+<label for="target">Arena conversation</label><select id="target"><option value="">Current tab</option></select>
+<form id="bind"><label for="token">Pairing token from terminal</label>
+<input id="token" type="password" autocomplete="off" required><button>Bind conversation</button></form>
+<form id="skill"><label for="name">Local skill name</label>
+<input id="name" autocomplete="off" required><button>Send browser draft with skill</button></form>
+<output id="status" aria-live="polite"></output>
+<script src="popup.js"></script></body></html>

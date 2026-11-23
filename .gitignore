@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+node_modules/
+dist/
+deepseek-harness/
+arena-agent/
+.serena/
+.env
+.env.*
+*.sqlite
+*.sqlite-*
+*.log
+*.tgz
+*.zip
+extension.token

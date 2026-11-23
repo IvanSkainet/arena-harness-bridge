@@ -1,0 +1,172 @@
+<!doctype html><meta charset="utf-8"><title>Offline batch upload fixture</title>
+<main></main><output id="out">running</output>
+<script src="../core.js"></script><script src="../generated-images.js"></script><script src="../native-questions.js"></script><script src="../adapter.js"></script>
+<script>
+(async () => {
+  const check = (condition, message) => { if (!condition) throw Error(message); };
+  const page = new ArenaPage(document);
+  const clock = Date.now;
+  function png(color) {
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = 2;
+    const context = canvas.getContext('2d');
+    context.fillStyle = color;
+    context.fillRect(0,0,2,2);
+    return canvas.toDataURL('image/png').split(',')[1];
+  }
+  const red = png('red'), blue = png('blue');
+
+  function composer() {
+    document.querySelector('main').innerHTML = '<form><textarea></textarea><input type="file" accept="image/*" multiple><button type="button" aria-label="Send">Send</button></form>';
+    const [field,input,button] = document.querySelector('form').elements;
+    const form = field.form;
+    const submitted = [];
+    let changes = 0;
+    input.onchange = () => changes++;
+    button.onclick = () => submitted.push({text:field.value, files:Array.from(input.files), previews:form.querySelectorAll('img').length});
+    const preview = (src, name) => {
+      const img = new Image();
+      img.src = src;
+      if (name) img.alt = name;
+      form.append(img);
+      return img;
+    };
+    return {field,input,form,preview,submitted,get changes(){return changes;}};
+  }
+  async function refused(ui, job, why) {
+    const start = clock();
+    Date.now = () => start + (clock()-start)*40;
+    let error;
+    try { await page.submit(job,'',()=>true,()=>{}); }
+    catch (cause) { error = cause; }
+    finally { Date.now = clock; }
+    check(error && !ui.submitted.length,why);
+    return error;
+  }
+  function onFiles(ui, attach) {
+    ui.input.addEventListener('change', () => attach(Array.from(ui.input.files)), {once:true});
+  }
+  let ui = composer();
+  let expected;
+  const blobUrls = [];
+  onFiles(ui, files => {
+    expected = files;
+    const src = files.map(file => URL.createObjectURL(file));
+    blobUrls.push(...src);
+    ui.preview(src[0],files[0].name);
+    setTimeout(() => {
+      ui.preview(src[1],files[1].name);
+      ui.preview(src[2],files[2].name);
+    },160);
+  });
+  const pictures = [blue,red,blue];
+  await page.submit({text:'all three',pngs:pictures},'',()=>true,()=>{});
+  check(ui.submitted.length===1 && ui.submitted[0].text==='all three' && ui.submitted[0].previews===3 &&
+    ui.changes===1 && expected?.length===3,'one Send with three original files in one selection');
+  check(new Set(expected.map(file=>file.name)).size===3,'identical captures remain distinct attachments');
+  for (const [i,file] of ui.submitted[0].files.entries()) {
+    const data = btoa(String.fromCharCode(...new Uint8Array(await file.arrayBuffer())));
+    check(file===expected[i] && data===pictures[i],'submitted FileList preserves original PNG order and bytes');
+  }
+  blobUrls.forEach(url=>URL.revokeObjectURL(url));
+
+  ui = composer();
+  onFiles(ui, files => {
+    ui.input.value = '';
+    files.forEach((file,i)=>ui.preview('data:image/png;base64,'+pictures[i], file.name));
+  });
+  await page.submit({text:'cleared picker',pngs:pictures},'',()=>true,()=>{});
+  check(ui.submitted.length===1 && !ui.submitted[0].files.length,'all ordered identified previews accepted after site clears picker');
+
+  for(const [label,order] of [['duplicate thumbnail',[0,0]],['swapped thumbnails',[1,0]]]) {
+    ui = composer();
+    const urls=[];
+    onFiles(ui,files=>{
+      ui.input.value='';
+      for(const [i,source] of order.entries()) {
+        const url=URL.createObjectURL(files[source]);
+        urls.push(url);
+        ui.preview(url,files[i].name);
+      }
+    });
+    await refused(ui,{text:'hold',pngs:[blue,red]},label+' with the expected filenames must stop Send');
+    check(!ui.field.value,label+' must be detected before writing the draft');
+    urls.forEach(url=>URL.revokeObjectURL(url));
+  }
+
+  for (const [label,show] of [
+    ['partial', (u,files)=>u.preview('data:image/png;base64,'+blue,files[0].name)],
+    ['swapped', (u,files)=>[1,0].forEach(i=>u.preview('data:image/png;base64,'+pictures[i],files[i].name))],
+    ['wrong anonymous image', (u,files)=>files.forEach(()=>u.preview('data:image/png;base64,'+blue))],
+    ['extra', (u,files)=>[0,1,0].forEach(i=>u.preview('data:image/png;base64,'+pictures[i],files[i].name))]
+  ]) {
+    ui = composer();
+    onFiles(ui, files=>show(ui,files));
+    await refused(ui,{text:'hold',pngs:[blue,red]},label+' upload must never click Send');
+    check(ui.field.value==='',label+' attachments not confirmed before writing the draft');
+  }
+  ui = composer();
+  onFiles(ui, files => {
+    files.forEach((file,i)=>ui.preview('data:image/png;base64,'+pictures[i],file.name));
+    ui.field.addEventListener('input',()=>{
+      const dt = new DataTransfer();
+      for (const file of files) dt.items.add(new File([file],file.name,{type:file.type,lastModified:file.lastModified}));
+      ui.input.files = dt.files;
+    },{once:true});
+  });
+  await refused(ui,{text:'hold',pngs:[blue,red]},'same-name replacement files must stop Send');
+
+  ui = composer();
+  onFiles(ui, files => {
+    ui.input.value = '';
+    const previews = files.map((file,i)=>ui.preview('data:image/png;base64,'+pictures[i],file.name));
+    ui.field.addEventListener('input',()=>previews[0].src=previews[1].src,{once:true});
+  });
+  await refused(ui,{text:'hold',pngs:[blue,red]},'replaced confirmed preview with original filename must stop Send');
+
+  ui = composer();
+  onFiles(ui, files => {
+    ui.input.value = '';
+    const preview=document.createElement('div');
+    preview.dataset.testid='attachment-preview';
+    preview.textContent='Uploaded '+files[0].name;
+    ui.form.append(preview);
+  });
+  await page.submit({text:'legacy labelled card',png:red},'',()=>true,()=>{});
+  check(ui.submitted.length===1,'existing singleton uploader accepts its labelled attachment card');
+
+  ui = composer();
+  onFiles(ui,files=>{
+    files.forEach((file,i)=>ui.preview('data:image/png;base64,'+pictures[i],file.name));
+    ui.field.value='my edit';
+  });
+  await refused(ui,{text:'hold',pngs:[blue,red]},'edited browser draft must stop Send');
+  check(ui.field.value==='my edit','preserve operator edit');
+  ui = composer();
+  onFiles(ui,files=>{
+    ui.preview('data:image/png;base64,'+blue,files[0].name);
+    ui.form.insertAdjacentHTML('beforeend','<div role="alert">Too many attachments</div>');
+  });
+  let failure = await refused(ui,{text:'hold',pngs:[blue,red]},'quota after partial upload blocks submit');
+  check(failure.kind==='limited' && !ui.field.value,'report site quota without writing text');
+
+  const large = 'iVBORw0KGgoA'+'A'.repeat(5592408-12);
+  const full = 'iVBORw0KGgoA'+'A'.repeat(5592408-14)+'==';
+  for (const [label,job,configure] of [
+    ['single-select picker',{pngs:[red,blue]},u=>u.input.multiple=false],
+    ['site slots',{pngs:[red,blue]},u=>u.input.dataset.remainingFiles='1'],
+    ['oversized frame',{pngs:[red,large]}],
+    ['oversized aggregate',{pngs:Array(9).fill(full)}],
+    ['over count',{pngs:Array(21).fill(red)}],
+    ['malformed second PNG',{pngs:[red,'AAAA']}],
+    ['mixed old and new wire fields',{png:red,pngs:[red,blue]}],
+    ['empty batch',{pngs:[]}]
+  ]) {
+    ui = composer();
+    if (configure) configure(ui);
+    await refused(ui,{text:'hold',...job},label+' blocks delivery');
+    check(!ui.changes && !ui.field.value,label+' must reject before selecting any files');
+  }
+  document.querySelector('#out').textContent='All fixture checks passed';
+})().catch(error=>document.querySelector('#out').textContent=error.message);
+</script>

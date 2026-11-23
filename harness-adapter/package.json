@@ -1,0 +1,16 @@
+{
+  "name": "arena-harness-adapter",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.9.0"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "sharp": "0.35.5",
+    "tsx": "4.23.13"
+  }
+}

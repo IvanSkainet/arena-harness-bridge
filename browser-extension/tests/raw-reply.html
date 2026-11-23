@@ -1,0 +1,112 @@
+<!doctype html><meta charset="utf-8"><main></main><output id="out">running</output>
+<script src="../core.js"></script><script src="../generated-images.js"></script>
+<script src="../native-questions.js"></script><script src="../raw-reply.js"></script><script src="../adapter.js"></script>
+<script>
+try {
+  const page = new ArenaPage(document), main = document.querySelector('main');
+  const delivery = 'a'.repeat(32), ticks = String.fromCharCode(96).repeat(3);
+  const source = JSON.stringify({$harness:'tool_call',turn_id:delivery,name:'read',arguments:{filePath:'C:\\Users\\fixture.txt'}}, null, 2);
+  let clipboardWrites = 0, clicks = 0, currentSource;
+  Object.defineProperty(navigator.clipboard,'writeText',{configurable:true,value:async()=>{clipboardWrites++;}});
+  function mount(raw, rendered) {
+    currentSource = raw;
+    const row = document.createElement('div');
+    row.id = 'chat-message-fixture';
+    row.dataset.agentTranscriptMessage = 'true';
+    row.dataset.chatMessageId = 'fixture';
+    row.dataset.messageStatus = 'complete';
+    row.innerHTML = '<div class="relative bg-surface-primary rounded-xl border w-full"><div class="px-3 pb-3">'+
+      '<div class="flex flex-col gap-2"><div class="prose prose-base body-base">'+rendered+'</div></div>'+
+      '<div class="mt-3 flex flex-col gap-3"><div class="flex flex-wrap items-center justify-between gap-2">'+
+      '<div class="flex flex-wrap items-center gap-1"><button aria-label="Copy">Copy</button></div></div></div></div></div>';
+    row.querySelector('button').onclick=()=>{clicks++;return navigator.clipboard.writeText(currentSource);};
+    main.replaceChildren(row);
+    return page.rows()[0];
+  }
+  const block = text => `${ticks}json\n${text}\n${ticks}`;
+  const check = (test, label) => { if (!test) throw Error(label); };
+  const visuallyBroken='<p>Before</p><p>{"$harness":"tool_call",</p><pre><code>invalid</code></pre><pre><code>fragment</code></pre>';
+  let row = mount('Before\n\n'+block(source)+'\n\nAfter', visuallyBroken);
+  check(!row.toolFrame,'the rendered fragment is not a trustworthy command');
+  page.recoverToolReply(row, delivery);
+  check(row.toolSource === source && row.toolFrame,'the original command must be preserved word for word');
+  check(row.responseText === 'Before\n\nAfter','both explanations survive without technical JSON');
+  page.recoverToolReply(page.rows()[0], delivery);
+  check(clicks===1 && clipboardWrites===0,'one source read must leave clipboard untouched');
+  check(page.confirmToolReply(page.rows()[0]), 'the current source matches the pending command');
+  currentSource=currentSource.replace('fixture.txt','changed.txt');
+  check(!page.confirmToolReply(page.rows()[0]), 'a changed original is rejected even if its rendering stays the same');
+  row=mount('Before\n\n'+source+'\n\nAfter',visuallyBroken);
+  page.recoverToolReply(row,delivery);
+  check(row.toolSource===source,'an intact standalone object is independent of Markdown position');
+  const ordinary='{"city":"Vladivostok","count":3}';
+  row=mount('Before'+block(source)+'\n\n'+block(ordinary)+'\n\nAfter',visuallyBroken);
+  page.recoverToolReply(row,delivery);
+  check(row.toolSource===source && row.responseText==='Before\n\n'+block(ordinary)+'\n\nAfter',
+    'a fence glued to the preceding prose leaves no empty command block');
+  row=mount(block(ordinary),'<pre><code class="language-json">'+ordinary+'</code></pre>');
+  page.recoverToolReply(row,delivery);
+  check(!row.toolSource && !row.toolFrame && row.text.includes(ordinary),'ordinary JSON stays in the answer');
+  row=mount('{\n"example":\n'+source+'\n}',visuallyBroken);
+  page.recoverToolReply(row,delivery);
+  check(!row.toolFrame && !row.toolSource,'a nested object stays inside ordinary JSON');
+  row=mount(source.split('\n').map(line=>'    '+line).join('\n'),visuallyBroken);
+  page.recoverToolReply(row,delivery);
+  check(!row.toolFrame && !row.toolSource,'a Markdown indented example cannot authorize a call');
+  row=mount('<details>\n'+block(source)+'\n</details>', '<details open><pre>'+source+'</pre></details>');
+  page.recoverToolReply(row,delivery);
+  check(!row.toolFrame && !row.toolSource, 'a details example stays inert');
+  row=mount('<!--\n'+block(source)+'\n-->', '<p>The text names "$harness"</p>');
+  page.recoverToolReply(row,delivery);
+  check(!row.toolFrame && !row.toolSource,'a hidden comment cannot use a visible mention as authority');
+  row=mount('<div hidden>\n'+block(source)+'\n</div>', visuallyBroken);
+  page.recoverToolReply(row,delivery);
+  check(!row.toolFrame && !row.toolSource,'a hidden region cannot borrow a separate visible header');
+  row=mount('- Example:\n\n  '+block(source).split('\n').join('\n  '), '<ul><li><pre>'+source+'</pre></li></ul>');
+  page.recoverToolReply(row,delivery);
+  check(!row.toolFrame && !row.toolSource,'a list-nested example stays inert');
+  row=mount(ticks+'json\n'+source,visuallyBroken);
+  page.recoverToolReply(row,delivery);
+  check(row.toolFrame && row.toolSource===source,'a complete copied JSON object survives an unclosed presentation fence');
+  row=mount(block(source)+'\n\n'+block(source),visuallyBroken);
+  page.recoverToolReply(row,delivery);
+  check(!row.toolFrame && !row.responseText.includes('$harness'),'ambiguous commands stay inert and hidden');
+  row=mount('Before'+block(source)+'\n\n'+block(source),visuallyBroken);
+  page.recoverToolReply(row,delivery);
+  check(!row.toolFrame && !row.responseText.includes('$harness'),
+    'a glued command wrapper cannot conceal a second marked block from ambiguity checks');
+  const originalMarkdown='Before\n\n'+block(source)+'\n\nAfter';
+  row=mount(originalMarkdown,visuallyBroken);
+  const wrapper=main.firstElementChild,section=wrapper.querySelector('.prose');
+  wrapper.insertAdjacentHTML('beforeend','<span aria-label="Response ended">Done</span>');
+  const log=new ArenaBridge.Transcript([]),receipt='Bridge delivery '+delivery;
+  const user={role:'user',siteId:'from-operator',text:'Read the fixture\n'+receipt,lastLine:receipt};
+  const options={generating:false,captureSource:r=>page.captureReplySource?.(r),historySource:r=>page.historyReplySource?.(r)};
+  row=page.rows()[0];page.recoverToolReply(row,delivery);
+  log.expect(delivery,'Read the fixture',null,receipt);
+  const accepted=log.scan([user,row],options).find(e=>e.kind==='assistant');
+  check(accepted?.toolSource===source && accepted.text==='Before\n\nAfter','one native command was accepted with sanitized text');
+  log.acknowledgeReply(accepted);
+  const last=document.createElement('div');last.className=section.className;section.after(last);
+  last.append(...Array.from(section.children).slice(1));
+  const after=page.rows()[0];
+  check(after.text!==row.text && after.multipleFinalBodies && after.complete,'actual two-body redraw changes DOM text for the same ID');
+  let now=Date.now();Date.now=()=>now;
+  check(log.scan([user,after],options).length===0,'historical redrawing cannot publish another command');
+  now+=11000;log.scan([user,page.rows()[0]],options);
+  check(!log.fault && log.historyChangedAt==null,'the original Copy source survives the two-body redraw past the history timeout');
+  const checkedClicks=clicks;
+  for(let i=0;i<7;i++) log.scan([user,page.rows()[0]],options);
+  check(clicks===checkedClicks && clipboardWrites===0,'stable historical text does not repeatedly activate Copy');
+  const newer=wrapper.cloneNode(true);newer.id='chat-message-next';newer.dataset.chatMessageId='next';main.append(newer);
+  check(page.historyReplySource(page.rows()[0])===originalMarkdown,'an older completed native row has its own historical Copy proof');
+  check(!page.confirmToolReply(page.rows()[0]),'a historical row cannot regain current command authority');
+  const duplicate=wrapper.cloneNode(true);main.append(duplicate);
+  check(page.historyReplySource(page.rows()[0])===undefined,'a duplicate identity cannot supply historical proof');
+  duplicate.remove();newer.remove();
+  currentSource=originalMarkdown.replace('fixture.txt','different.txt');
+  log.scan([user,page.rows()[0]],{...options,outgoing:true});
+  check(/source/i.test(log.fault),'actual Send guard detects changed arguments with identical visible rendering');
+  document.querySelector('#out').textContent='All fixture checks passed';
+} catch(error){document.querySelector('#out').textContent=error.message;}
+</script>
