@@ -21,8 +21,8 @@ export class Companion {
     const fail = () => {
       if (this.child !== child) return
       this.child = null
-      const occupied = /10048|EADDRINUSE|address already in use|port 8766/i.test(diagnostic)
-      const error = Error(occupied ? 'Port 8766 is busy. Stop the standalone Arena terminal, then open Connect Arena again.'
+      const occupied = /10048|10013|EADDRINUSE|address already in use|port 8766/i.test(diagnostic)
+      const error = Error(occupied ? 'Port 8766 is busy. Stop the standalone Arena terminal or the other program using this port, then open Connect Arena again.'
         : 'Arena bridge companion disconnected. Check Python, the bridge installation path, and Connect Arena.')
       for (const { reject } of this.pending.values()) reject(error)
       this.pending.clear()
