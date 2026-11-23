@@ -3,7 +3,8 @@
 <head><meta charset="utf-8"><title>Arena Harness Bridge</title>
 <style>
   :root {color-scheme: light dark; font: 15px/1.45 system-ui, sans-serif}
-  body {width: 360px; max-width: calc(100vw - 40px); margin: 20px}
+  /* Chrome uses the document's intrinsic width to size the toolbar popup. */
+  body {width: 360px; margin: 20px}
   h1 {font-size: 20px; margin: 0 0 16px}
   label {display: block; margin: 12px 0 4px}
   input,select,button {box-sizing:border-box; font:inherit; width:100%; padding:7px}
